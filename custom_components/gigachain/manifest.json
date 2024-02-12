@@ -1,0 +1,15 @@
+{
+  "domain": "gigachain",
+  "name": "GigaChain",
+  "codeowners": [
+    "@gritaro"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/gritaro/gigachain",
+  "homekit": {},
+  "iot_class": "cloud_polling",
+  "version":"0.1.0",
+  "integration_type": "service",
+  "dependencies": ["conversation"],
+  "requirements": ["gigachain"]
+}

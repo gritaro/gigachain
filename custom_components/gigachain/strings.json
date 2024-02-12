@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "GigaChain configuration",
+        "data": {
+          "auth_data": "Authorization data"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "prompt": "Prompt Template",
+          "model": "Completion Model"
+        }
+      }
+    }
+  }
+}

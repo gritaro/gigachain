@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "GigaChain конфигурация",
+        "data": {
+          "auth_data": "Авторизационные данные"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Нельзя настроить более одной интеграции"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "prompt": "Промпт темплейт",
+          "model": "Модель"
+        }
+      }
+    }
+  }
+}
