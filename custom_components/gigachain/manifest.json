@@ -5,12 +5,17 @@
     "@gritaro"
   ],
   "config_flow": true,
+  "dependencies": [
+    "conversation"
+  ],
   "documentation": "https://github.com/gritaro/gigachain",
-  "issue_tracker": "https://github.com/gritaro/gigachain/issues",
   "homekit": {},
-  "iot_class": "cloud_polling",
-  "version":"0.1.0",
   "integration_type": "service",
-  "dependencies": ["conversation"],
-  "requirements": ["gigachain"]
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/gritaro/gigachain/issues",
+  "requirements": [
+    "gigachain",
+    "yandexcloud"
+  ],
+  "version": "0.1.0"
 }
