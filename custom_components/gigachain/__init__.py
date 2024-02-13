@@ -1,26 +1,16 @@
 """The GigaChain integration."""
 from __future__ import annotations
-from abc import abstractmethod
-import re
 from homeassistant.components import conversation
-from homeassistant.components.conversation.const import HOME_ASSISTANT_AGENT
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import MATCH_ALL
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import (
-    config_validation as cv,
     intent,
     template,
 )
 from homeassistant.components.conversation import AgentManager, agent
 from typing import Literal
-from langchain.chat_models import GigaChat
-from langchain.prompts.chat import (
-    AIMessagePromptTemplate,
-    ChatPromptTemplate,
-    HumanMessagePromptTemplate,
-    SystemMessagePromptTemplate,
-)
+from langchain_community.chat_models import GigaChat
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from homeassistant.util import ulid
 from .const import (
@@ -38,7 +28,6 @@ LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Initialize GigaChain."""
     client = GigaChat(credentials=entry.data[CONF_AUTH_DATA], verify_ssl_certs=False)
-    models = client.get_models()
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = client
     conversation.async_set_agent(hass, entry, GigaChatAI(hass, entry))
     return True

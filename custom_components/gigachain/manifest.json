@@ -1,21 +1,17 @@
 {
   "domain": "gigachain",
   "name": "GigaChain",
-  "codeowners": [
-    "@gritaro"
-  ],
+  "codeowners": ["@gritaro"],
   "config_flow": true,
-  "dependencies": [
-    "conversation"
-  ],
+  "dependencies": ["conversation"],
   "documentation": "https://github.com/gritaro/gigachain",
   "homekit": {},
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/gritaro/gigachain/issues",
   "requirements": [
-    "gigachain",
-    "yandexcloud"
+    "gigachain-community==0.0.16",
+    "yandexcloud==0.259.0"
   ],
   "version": "0.1.0"
 }
