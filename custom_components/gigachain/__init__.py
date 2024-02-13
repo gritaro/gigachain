@@ -10,11 +10,18 @@ from homeassistant.helpers import (
 )
 from homeassistant.components.conversation import AgentManager, agent
 from typing import Literal
-from langchain_community.chat_models import GigaChat
+from langchain_community.chat_models import GigaChat, ChatYandexGPT, ChatOpenAI
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from homeassistant.util import ulid
 from .const import (
     DOMAIN,
+    CONF_ENGINE,
+    CONF_TEMPERATURE,
+    DEFAULT_CONF_TEMPERATURE,
+    CONF_CHAT_MODEL,
+    DEFAULT_CHAT_MODEL,
+    CONF_CHAT_MODEL,
+    CONF_FOLDER_ID,
     CONF_API_KEY,
     CONF_CHAT_MODEL,
     DEFAULT_CHAT_MODEL,
@@ -25,9 +32,29 @@ import logging
 
 LOGGER = logging.getLogger(__name__)
 
+async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Update listener."""
+    await hass.config_entries.async_reload(entry.entry_id)
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Initialize GigaChain."""
-    client = GigaChat(credentials=entry.data[CONF_API_KEY], verify_ssl_certs=False)
+    temperature = entry.options.get(CONF_TEMPERATURE, DEFAULT_CONF_TEMPERATURE)
+    engine = entry.data.get(CONF_ENGINE) or "gigachat"
+    entry.async_on_unload(entry.add_update_listener(update_listener))
+    if engine == 'gigachat':
+        client = GigaChat(temperature=temperature,
+                          model='GigaChat:latest',
+                          verbose=True,
+                          credentials=entry.data[CONF_API_KEY],
+                          verify_ssl_certs=False)
+    elif engine == 'yandexgpt':
+        client = ChatYandexGPT(temperature=temperature,
+                               api_key=entry.data[CONF_API_KEY],
+                               folder_id = entry.data[CONF_FOLDER_ID])
+    else:
+        client = ChatOpenAI(model="gpt-3.5-turbo",
+                            temperature=temperature,
+                            openai_api_key=entry.data[CONF_API_KEY])
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = client
     conversation.async_set_agent(hass, entry, GigaChatAI(hass, entry))
     return True
@@ -55,7 +82,6 @@ class GigaChatAI(conversation.AbstractConversationAgent):
     ) -> agent.ConversationResult:
         """Process a sentence."""
         raw_prompt = self.entry.options.get(CONF_PROMPT, DEFAULT_PROMPT)
-        model = self.entry.options.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL)
         if user_input.conversation_id in self.history:
             conversation_id = user_input.conversation_id
             messages = self.history[conversation_id]
@@ -70,8 +96,6 @@ class GigaChatAI(conversation.AbstractConversationAgent):
 
         messages.append(HumanMessage(content=user_input.text))
         client = self.hass.data[DOMAIN][self.entry.entry_id]
-        client.model = model
-
         res = client(messages)
         messages.append(res)
         self.history[conversation_id] = messages

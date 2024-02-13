@@ -2,22 +2,44 @@
   "config": {
     "step": {
       "user": {
-        "title": "GigaChain конфигурация",
+        "title": "GigaChain конфигурация - выбор LLM",
+        "data": {
+          "engine": "Большая языковая модель"
+        }
+      },
+      "gigachat": {
+        "title": "Конфигурация GigaChat",
         "data": {
           "api_key": "Авторизационные данные"
+        }
+      },
+      "yandexgpt": {
+        "title": "Конфигурация YandexGPT",
+        "data": {
+          "api_key": "API ключ",
+          "folder_id": "Folder ID"
+        }
+      },
+      "openai": {
+        "title": "Конфигурация OpenAI",
+        "data": {
+          "api_key": "API ключ"
         }
       }
     },
     "abort": {
-      "already_configured": "Нельзя настроить более одной интеграции"
+      "already_configured": "Эта модель уже настроена"
     }
   },
   "options": {
     "step": {
       "init": {
+        "title": "Конфигурация модели",
         "data": {
           "prompt": "Промпт темплейт",
-          "model": "Модель"
+          "model": "Модель",
+          "temperature": "Температура",
+          "max_tokens": "Максимум токенов"
         }
       }
     }

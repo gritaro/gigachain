@@ -2,9 +2,28 @@
   "config": {
     "step": {
       "user": {
-        "title": "GigaChain configuration",
+        "title": "GigaChain configuration - select engine",
         "data": {
-          "api_key": "Authorization data"
+          "engine": "LLM Engine"
+        }
+      },
+      "gigachat": {
+        "title": "GigaChat configuration",
+        "data": {
+          "api_key": "Auth data"
+        }
+      },
+      "yandexgpt": {
+        "title": "YandexGPT configuration",
+        "data": {
+          "api_key": "API Key",
+          "folder_id": "Folder ID"
+        }
+      },
+      "openai": {
+        "title": "OpenAI configuration",
+        "data": {
+          "api_key": "API Key"
         }
       }
     },
@@ -15,9 +34,12 @@
   "options": {
     "step": {
       "init": {
+        "title": "Model configuration",
         "data": {
           "prompt": "Prompt Template",
-          "model": "Completion Model"
+          "model": "Completion Model",
+          "temperature": "Temperature",
+          "max_tokens": "Max Tokens"
         }
       }
     }
