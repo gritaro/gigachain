@@ -1,7 +1,7 @@
 """Constants for the GigaChain integration."""
 
 DOMAIN = "gigachain"
-CONF_AUTH_DATA = "auth_data"
+CONF_API_KEY = "api_key"
 CONF_PROMPT = "prompt"
 DEFAULT_PROMPT = """Ты HAL 9000, компьютер из цикла произведений «Космическая одиссея» Артура Кларка, обладающий способностью к самообучению.
 Мы находимся в умном доме под управлением системы Home Assistant.

@@ -15,7 +15,7 @@ from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from homeassistant.util import ulid
 from .const import (
     DOMAIN,
-    CONF_AUTH_DATA,
+    CONF_API_KEY,
     CONF_CHAT_MODEL,
     DEFAULT_CHAT_MODEL,
     CONF_PROMPT,
@@ -27,7 +27,7 @@ LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Initialize GigaChain."""
-    client = GigaChat(credentials=entry.data[CONF_AUTH_DATA], verify_ssl_certs=False)
+    client = GigaChat(credentials=entry.data[CONF_API_KEY], verify_ssl_certs=False)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = client
     conversation.async_set_agent(hass, entry, GigaChatAI(hass, entry))
     return True

@@ -15,7 +15,7 @@ from homeassistant.helpers.selector import (
     TemplateSelector,
 )
 from .const import (
-    CONF_AUTH_DATA,
+    CONF_API_KEY,
     CONF_CHAT_MODEL,
     CONF_PROMPT,
     DEFAULT_CHAT_MODEL,
@@ -25,7 +25,7 @@ from .const import (
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_AUTH_DATA): str
+        vol.Required(CONF_API_KEY): str
     }
 )
 

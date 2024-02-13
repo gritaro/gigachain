@@ -4,7 +4,7 @@
       "user": {
         "title": "GigaChain configuration",
         "data": {
-          "auth_data": "Authorization data"
+          "api_key": "Authorization data"
         }
       }
     },
