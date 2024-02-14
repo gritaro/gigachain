@@ -10,9 +10,7 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/gritaro/gigachain/issues",
   "requirements": [
-    "gigachat==0.1.16",
-    "langchain==0.1.7",
-    "gigachain-community==0.0.16",
+    "gigachain==0.1.4",
     "yandexcloud==0.259.0"
   ],
   "version": "0.1.2"

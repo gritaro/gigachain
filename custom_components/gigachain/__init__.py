@@ -1,5 +1,4 @@
 """The GigaChain integration."""
-from __future__ import annotations
 from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import MATCH_ALL
@@ -9,6 +8,7 @@ from homeassistant.helpers import (
     template,
 )
 from homeassistant.components.conversation import AgentManager, agent
+
 from typing import Literal
 from langchain_community.chat_models import GigaChat, ChatYandexGPT, ChatOpenAI
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
@@ -17,7 +17,7 @@ from .const import (
     DOMAIN,
     CONF_ENGINE,
     CONF_TEMPERATURE,
-    DEFAULT_CONF_TEMPERATURE,
+    DEFAULT_TEMPERATURE,
     CONF_CHAT_MODEL,
     DEFAULT_CHAT_MODEL,
     CONF_CHAT_MODEL,
@@ -38,21 +38,32 @@ async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Initialize GigaChain."""
-    temperature = entry.options.get(CONF_TEMPERATURE, DEFAULT_CONF_TEMPERATURE)
+    temperature = entry.options.get(CONF_TEMPERATURE, DEFAULT_TEMPERATURE)
+    model = entry.options.get(CONF_CHAT_MODEL)
     engine = entry.data.get(CONF_ENGINE) or "gigachat"
     entry.async_on_unload(entry.add_update_listener(update_listener))
     if engine == 'gigachat':
         client = GigaChat(temperature=temperature,
-                          model='GigaChat:latest',
+                          model=model,
                           verbose=True,
                           credentials=entry.data[CONF_API_KEY],
                           verify_ssl_certs=False)
     elif engine == 'yandexgpt':
-        client = ChatYandexGPT(temperature=temperature,
+        if model == "YandexGPT":
+            model_url = "gpt://" + entry.data[CONF_FOLDER_ID] + "/yandexgpt/latest"
+        elif model == 'YandexGPT Lite':
+            model_url = "gpt://" + entry.data[CONF_FOLDER_ID] + "/yandexgpt-lite/latest"
+        elif model == 'Summary':
+            model_url = "gpt://" + entry.data[CONF_FOLDER_ID] + "/summarization/latest"
+        else:
+            model_url = ""
+        client = ChatYandexGPT(
+                               model_uri=model_url,
+                               temperature=temperature,
                                api_key=entry.data[CONF_API_KEY],
                                folder_id = entry.data[CONF_FOLDER_ID])
     else:
-        client = ChatOpenAI(model="gpt-3.5-turbo",
+        client = ChatOpenAI(model=model,
                             temperature=temperature,
                             openai_api_key=entry.data[CONF_API_KEY])
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = client
