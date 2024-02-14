@@ -15,5 +15,5 @@
     "gigachain-community==0.0.16",
     "yandexcloud==0.259.0"
   ],
-  "version": "0.1.0"
+  "version": "0.1.2"
 }
