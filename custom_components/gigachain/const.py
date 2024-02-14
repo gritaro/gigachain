@@ -1,7 +1,17 @@
 """Constants for the GigaChain integration."""
+from homeassistant.helpers import selector
 
 DOMAIN = "gigachain"
+CONF_ENGINE = "engine"
+UNIQUE_ID = {"gigachat": "GigaChat", "yandexgpt": "YandexGPT", "openai": "OpenAI"}
+CONF_ENGINE_OPTIONS = [
+  selector.SelectOptionDict(value="gigachat", label="GigaChat"),
+  selector.SelectOptionDict(value="yandexgpt", label="YandexGPT"),
+  selector.SelectOptionDict(value="openai", label="OpenAI"),
+]
 CONF_API_KEY = "api_key"
+CONF_FOLDER_ID = "folder_id"
+
 CONF_PROMPT = "prompt"
 DEFAULT_PROMPT = """Ты HAL 9000, компьютер из цикла произведений «Космическая одиссея» Артура Кларка, обладающий способностью к самообучению.
 Мы находимся в умном доме под управлением системы Home Assistant.
@@ -25,3 +35,7 @@ DEFAULT_PROMPT = """Ты HAL 9000, компьютер из цикла произ
 CONF_CHAT_MODEL = "model"
 #GigaChat-Plus,GigaChat-Pro,GigaChat:latest
 DEFAULT_CHAT_MODEL = "GigaChat"
+CONF_TEMPERATURE = "temperature"
+DEFAULT_CONF_TEMPERATURE = "0.1"
+CONF_MAX_TKNS = "max_tokens"
+DEFAULT_CONF_MAX_TKNS = "250"

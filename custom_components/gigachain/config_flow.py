@@ -9,25 +9,61 @@ from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
 import types
 from types import MappingProxyType
+from homeassistant.helpers import selector
 from homeassistant.helpers.selector import (
-    NumberSelector,
-    NumberSelectorConfig,
-    TemplateSelector,
+    TemplateSelector
 )
+import logging
+
+LOGGER = logging.getLogger(__name__)
+
 from .const import (
+    DOMAIN,
+    CONF_ENGINE,
     CONF_API_KEY,
+    CONF_FOLDER_ID,
     CONF_CHAT_MODEL,
+    CONF_TEMPERATURE,
+    CONF_ENGINE_OPTIONS,
     CONF_PROMPT,
+    CONF_MAX_TKNS,
+    DEFAULT_CONF_TEMPERATURE,
+    DEFAULT_CONF_MAX_TKNS,
     DEFAULT_CHAT_MODEL,
     DEFAULT_PROMPT,
-    DOMAIN
+    UNIQUE_ID,
 )
 
-STEP_USER_DATA_SCHEMA = vol.Schema(
+STEP_USER_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_ENGINE): selector.SelectSelector(
+            selector.SelectSelectorConfig(options=CONF_ENGINE_OPTIONS),
+        ),
+    }
+)
+
+STEP_GIGACHAT_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_API_KEY): str
     }
 )
+STEP_YANDEXGPT_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_API_KEY): str,
+        vol.Required(CONF_FOLDER_ID): str
+    }
+)
+STEP_OPENAI_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_API_KEY): str
+    }
+)
+
+ENGINE_SCHEMA = {
+    "gigachat": STEP_GIGACHAT_SCHEMA,
+    "yandexgpt": STEP_YANDEXGPT_SCHEMA,
+    "openai": STEP_OPENAI_SCHEMA
+}
 
 DEFAULT_OPTIONS = types.MappingProxyType(
     {
@@ -46,11 +82,36 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         """Handle the initial step."""
         if user_input is None:
-            return self.async_show_form(
-                step_id="user", data_schema=STEP_USER_DATA_SCHEMA
-            )
+            return self.async_show_form(step_id="user",
+                                        data_schema=STEP_USER_SCHEMA)
 
-        unique_id = "GigaChat"
+        engine = user_input[CONF_ENGINE]
+        unique_id = UNIQUE_ID[engine]
+        await self.async_set_unique_id(unique_id)
+        self._abort_if_unique_id_configured()
+        return self.async_show_form(
+            step_id=engine, data_schema=ENGINE_SCHEMA[engine]
+        )
+
+    async def async_step_gigachat(
+        self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        return await self.common_model_async_step("gigachat", user_input)
+
+    async def async_step_yandexgpt(
+        self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        return await self.common_model_async_step("yandexgpt", user_input)
+
+    async def async_step_openai(self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        return await self.common_model_async_step("openai", user_input)
+
+    async def common_model_async_step(self, engine, user_input):
+        if user_input is None:
+            return self.async_show_form(
+                step_id=engine, data_schema=ENGINE_SCHEMA[engine]
+            )
+        user_input[CONF_ENGINE] = engine
+        unique_id = UNIQUE_ID[engine]
         await self.async_set_unique_id(unique_id)
         self._abort_if_unique_id_configured()
         return self.async_create_entry(title=unique_id, data=user_input)
@@ -74,14 +135,14 @@ class OptionsFlow(config_entries.OptionsFlow):
     ) -> FlowResult:
         """Manage the options."""
         if user_input is not None:
-            return self.async_create_entry(title="GigaChat", data=user_input)
-        schema = gigachat_config_option_schema(self.config_entry.options)
+            return self.async_create_entry(title=self.config_entry.unique_id, data=user_input)
+        schema = common_config_option_schema(self.config_entry.options)
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(schema),
         )
 
-def gigachat_config_option_schema(options: MappingProxyType[str, Any]) -> dict:
+def common_config_option_schema(options: MappingProxyType[str, Any]) -> dict:
     """Return a schema for GigaChain completion options."""
     if not options:
         options = DEFAULT_OPTIONS
@@ -95,8 +156,27 @@ def gigachat_config_option_schema(options: MappingProxyType[str, Any]) -> dict:
             CONF_CHAT_MODEL,
             description={
                 # New key in HA 2023.4
-                "suggested_value": options.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL)
+                "suggested_value": options.get(CONF_CHAT_MODEL,
+                                               DEFAULT_CHAT_MODEL)
             },
             default=DEFAULT_CHAT_MODEL,
         ): str,
+        vol.Optional(
+            CONF_TEMPERATURE,
+            description={
+                # New key in HA 2023.4
+                "suggested_value": options.get(CONF_TEMPERATURE,
+                                               DEFAULT_CONF_TEMPERATURE)
+            },
+            default=DEFAULT_CONF_TEMPERATURE,
+        ): float,
+        vol.Optional(
+            CONF_MAX_TKNS,
+            description={
+                # New key in HA 2023.4
+                "suggested_value": options.get(CONF_MAX_TKNS,
+                                               DEFAULT_CONF_MAX_TKNS)
+            },
+            default=DEFAULT_CONF_MAX_TKNS,
+        ): int,
     }
