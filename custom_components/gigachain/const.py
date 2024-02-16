@@ -2,15 +2,38 @@
 from homeassistant.helpers import selector
 
 DOMAIN = "gigachain"
-CONF_ENGINE = "engine"
-UNIQUE_ID = {"gigachat": "GigaChat", "yandexgpt": "YandexGPT", "openai": "OpenAI"}
+
+ID_GIGACHAT = "gigachat"
+ID_YANDEX_GPT = "yandexgpt"
+ID_OPENAI = "openai"
+UNIQUE_ID_GIGACHAT = "GigaChat"
+UNIQUE_ID_YANDEX_GPT = "YandexGPT"
+UNIQUE_ID_OPENAI = "OpenAI"
+
+UNIQUE_ID = {
+  ID_GIGACHAT: UNIQUE_ID_GIGACHAT,
+  ID_YANDEX_GPT: UNIQUE_ID_YANDEX_GPT,
+  ID_OPENAI: UNIQUE_ID_OPENAI
+}
+
 CONF_ENGINE_OPTIONS = [
-  selector.SelectOptionDict(value="gigachat", label="GigaChat"),
-  selector.SelectOptionDict(value="yandexgpt", label="YandexGPT"),
-  selector.SelectOptionDict(value="openai", label="OpenAI"),
+  selector.SelectOptionDict(value=ID_GIGACHAT, label=UNIQUE_ID_GIGACHAT),
+  selector.SelectOptionDict(value=ID_YANDEX_GPT, label=UNIQUE_ID_YANDEX_GPT),
+  selector.SelectOptionDict(value=ID_OPENAI, label=UNIQUE_ID_OPENAI),
 ]
+DEFAULT_MODELS_GIGACHAT = [
+  "GigaChat", "GigaChat:latest", "GigaChat-Plus", "GigaChat-Pro"
+]
+DEFAULT_MODELS_YANDEX_GPT = ["YandexGPT", "YandexGPT Lite", "Summary"]
+DEFAULT_MODELS_OPENAI = ["gpt-3.5-turbo"]
+DEFAULT_MODELS = {
+  UNIQUE_ID_GIGACHAT: DEFAULT_MODELS_GIGACHAT,
+  UNIQUE_ID_YANDEX_GPT: DEFAULT_MODELS_YANDEX_GPT,
+  UNIQUE_ID_OPENAI: DEFAULT_MODELS_OPENAI
+}
 CONF_API_KEY = "api_key"
 CONF_FOLDER_ID = "folder_id"
+CONF_ENGINE = "engine"
 
 CONF_PROMPT = "prompt"
 DEFAULT_PROMPT = """Ты HAL 9000, компьютер из цикла произведений «Космическая одиссея» Артура Кларка, обладающий способностью к самообучению.
@@ -33,9 +56,8 @@ DEFAULT_PROMPT = """Ты HAL 9000, компьютер из цикла произ
 """
 
 CONF_CHAT_MODEL = "model"
-#GigaChat-Plus,GigaChat-Pro,GigaChat:latest
-DEFAULT_CHAT_MODEL = "GigaChat"
+DEFAULT_CHAT_MODEL = ""
 CONF_TEMPERATURE = "temperature"
-DEFAULT_CONF_TEMPERATURE = "0.1"
-CONF_MAX_TKNS = "max_tokens"
-DEFAULT_CONF_MAX_TKNS = "250"
+DEFAULT_TEMPERATURE = 0.1
+CONF_MAX_TOKENS = "max_tokens"
+DEFAULT_MAX_TOKENS = 250

@@ -26,12 +26,13 @@ from .const import (
     CONF_TEMPERATURE,
     CONF_ENGINE_OPTIONS,
     CONF_PROMPT,
-    CONF_MAX_TKNS,
-    DEFAULT_CONF_TEMPERATURE,
-    DEFAULT_CONF_MAX_TKNS,
+    CONF_MAX_TOKENS,
+    DEFAULT_TEMPERATURE,
+    DEFAULT_MODELS,
+    DEFAULT_MAX_TOKENS,
     DEFAULT_CHAT_MODEL,
     DEFAULT_PROMPT,
-    UNIQUE_ID,
+    UNIQUE_ID
 )
 
 STEP_USER_SCHEMA = vol.Schema(
@@ -42,7 +43,7 @@ STEP_USER_SCHEMA = vol.Schema(
     }
 )
 
-STEP_GIGACHAT_SCHEMA = vol.Schema(
+STEP_API_KEY_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_API_KEY): str
     }
@@ -53,16 +54,11 @@ STEP_YANDEXGPT_SCHEMA = vol.Schema(
         vol.Required(CONF_FOLDER_ID): str
     }
 )
-STEP_OPENAI_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_API_KEY): str
-    }
-)
 
 ENGINE_SCHEMA = {
-    "gigachat": STEP_GIGACHAT_SCHEMA,
+    "gigachat": STEP_API_KEY_SCHEMA,
     "yandexgpt": STEP_YANDEXGPT_SCHEMA,
-    "openai": STEP_OPENAI_SCHEMA
+    "openai": STEP_API_KEY_SCHEMA
 }
 
 DEFAULT_OPTIONS = types.MappingProxyType(
@@ -136,47 +132,44 @@ class OptionsFlow(config_entries.OptionsFlow):
         """Manage the options."""
         if user_input is not None:
             return self.async_create_entry(title=self.config_entry.unique_id, data=user_input)
-        schema = common_config_option_schema(self.config_entry.options)
+        schema = common_config_option_schema(self.config_entry.unique_id, self.config_entry.options)
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(schema),
         )
 
-def common_config_option_schema(options: MappingProxyType[str, Any]) -> dict:
+def common_config_option_schema(unique_id: str, options: MappingProxyType[str, Any]) -> dict:
     """Return a schema for GigaChain completion options."""
     if not options:
         options = DEFAULT_OPTIONS
     return {
+        vol.Optional(
+            CONF_CHAT_MODEL,
+            description={
+                "suggested_value": options.get(CONF_CHAT_MODEL),
+            }, default="none",
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(options=DEFAULT_MODELS[unique_id]),
+        ),
         vol.Optional(
             CONF_PROMPT,
             description={"suggested_value": options[CONF_PROMPT]},
             default=DEFAULT_PROMPT,
         ): TemplateSelector(),
         vol.Optional(
-            CONF_CHAT_MODEL,
-            description={
-                # New key in HA 2023.4
-                "suggested_value": options.get(CONF_CHAT_MODEL,
-                                               DEFAULT_CHAT_MODEL)
-            },
-            default=DEFAULT_CHAT_MODEL,
-        ): str,
-        vol.Optional(
             CONF_TEMPERATURE,
             description={
-                # New key in HA 2023.4
                 "suggested_value": options.get(CONF_TEMPERATURE,
-                                               DEFAULT_CONF_TEMPERATURE)
+                                               DEFAULT_TEMPERATURE)
             },
-            default=DEFAULT_CONF_TEMPERATURE,
+            default=DEFAULT_TEMPERATURE,
         ): float,
         vol.Optional(
-            CONF_MAX_TKNS,
+            CONF_MAX_TOKENS,
             description={
-                # New key in HA 2023.4
-                "suggested_value": options.get(CONF_MAX_TKNS,
-                                               DEFAULT_CONF_MAX_TKNS)
+                "suggested_value": options.get(CONF_MAX_TOKENS,
+                                               DEFAULT_MAX_TOKENS)
             },
-            default=DEFAULT_CONF_MAX_TKNS,
+            default=DEFAULT_MAX_TOKENS,
         ): int,
     }
