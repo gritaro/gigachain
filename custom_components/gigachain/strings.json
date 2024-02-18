@@ -10,36 +10,51 @@
       "gigachat": {
         "title": "GigaChat configuration",
         "data": {
-          "api_key": "Auth data"
+          "api_key": "Auth data",
+          "skip_validation": "Skip validation"
         }
       },
       "yandexgpt": {
         "title": "YandexGPT configuration",
         "data": {
           "api_key": "API Key",
-          "folder_id": "Folder ID"
+          "folder_id": "Folder ID",
+          "skip_validation": "Skip validation"
         }
       },
       "openai": {
         "title": "OpenAI configuration",
         "data": {
-          "api_key": "API Key"
+          "api_key": "API Key",
+          "skip_validation": "Skip validation"
         }
       }
     },
     "abort": {
       "already_configured": "Already configured"
+    },
+    "error": {
+      "cannot_connect": "Can not connect",
+      "invalid_response": "Invalid response",
+      "unknown": "Unknown error"
     }
   },
   "options": {
+    "error": {
+      "model_required": "Either Model or Custom Model required"
+    },
     "step": {
       "init": {
         "title": "Model configuration",
         "data": {
           "prompt": "Prompt Template",
           "model": "Completion Model",
+          "model_gigachat": "Custom Model Name (leave empty to use from list above)",
+          "model_yandexgpt": "Custom Model Name (leave empty to use from list above)",
+          "model_openai": "Custom Model Name (leave empty to use from list above)",
           "temperature": "Temperature",
-          "max_tokens": "Max Tokens"
+          "max_tokens": "Max Tokens",
+          "profanity": "Profanity"
         }
       }
     }

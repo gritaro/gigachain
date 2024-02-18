@@ -10,36 +10,51 @@
       "gigachat": {
         "title": "Конфигурация GigaChat",
         "data": {
-          "api_key": "Авторизационные данные"
+          "api_key": "Авторизационные данные",
+          "skip_validation": "Skip validation"
         }
       },
       "yandexgpt": {
         "title": "Конфигурация YandexGPT",
         "data": {
           "api_key": "API ключ",
-          "folder_id": "Folder ID"
+          "folder_id": "Folder ID",
+          "skip_validation": "Skip validation"
         }
       },
       "openai": {
         "title": "Конфигурация OpenAI",
         "data": {
-          "api_key": "API ключ"
+          "api_key": "API ключ",
+          "skip_validation": "Skip validation"
         }
       }
     },
     "abort": {
       "already_configured": "Эта модель уже настроена"
+    },
+    "error": {
+      "cannot_connect": "Can not connect",
+      "invalid_response": "Invalid response",
+      "unknown": "Unknown error"
     }
   },
   "options": {
+    "error": {
+      "model_required": "Выберите модель из списка либо задайте свою"
+    },
     "step": {
       "init": {
         "title": "Конфигурация модели",
         "data": {
           "prompt": "Промпт темплейт",
           "model": "Модель",
+          "model_gigachat": "Своё имя модели (оставьте пустым для использования имени из списка)",
+          "model_yandexgpt": "Своё имя модели (оставьте пустым для использования имени из списка)",
+          "model_openai": "Своё имя модели (оставьте пустым для использования имени из списка)",
           "temperature": "Температура",
-          "max_tokens": "Максимум токенов"
+          "max_tokens": "Максимум токенов",
+          "profanity": "Цензура"
         }
       }
     }

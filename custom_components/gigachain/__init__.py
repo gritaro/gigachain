@@ -1,74 +1,58 @@
 """The GigaChain integration."""
+
+import logging
+from typing import Literal
+
 from homeassistant.components import conversation
+from homeassistant.components.conversation import agent
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import MATCH_ALL
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import (
-    intent,
-    template,
-)
-from homeassistant.components.conversation import AgentManager, agent
-
-from typing import Literal
-from langchain_community.chat_models import GigaChat, ChatYandexGPT, ChatOpenAI
-from langchain.schema import AIMessage, HumanMessage, SystemMessage
+from homeassistant.helpers import intent, template
 from homeassistant.util import ulid
-from .const import (
-    DOMAIN,
-    CONF_ENGINE,
-    CONF_TEMPERATURE,
-    DEFAULT_TEMPERATURE,
-    CONF_CHAT_MODEL,
-    DEFAULT_CHAT_MODEL,
-    CONF_CHAT_MODEL,
-    CONF_FOLDER_ID,
-    CONF_API_KEY,
-    CONF_CHAT_MODEL,
-    DEFAULT_CHAT_MODEL,
-    CONF_PROMPT,
-    DEFAULT_PROMPT
-    )
-import logging
+from langchain.schema import BaseMessage, HumanMessage, SystemMessage
+
+from .client_util import get_client
+from .const import (CONF_API_KEY, CONF_CHAT_MODEL, CONF_CHAT_MODEL_USER,
+                    CONF_ENGINE, CONF_FOLDER_ID, CONF_MAX_TOKENS,
+                    CONF_PROFANITY, CONF_PROMPT, CONF_TEMPERATURE,
+                    DEFAULT_CHAT_MODEL, DEFAULT_PROFANITY, DEFAULT_PROMPT,
+                    DEFAULT_TEMPERATURE, DOMAIN, ID_GIGACHAT)
 
 LOGGER = logging.getLogger(__name__)
+
 
 async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Update listener."""
     await hass.config_entries.async_reload(entry.entry_id)
 
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Initialize GigaChain."""
+    engine = entry.data.get(CONF_ENGINE) or ID_GIGACHAT
+    model = entry.options.get(CONF_CHAT_MODEL_USER)
+    if model == " " or model == "" or model is None:
+        model = entry.options.get(CONF_CHAT_MODEL)
     temperature = entry.options.get(CONF_TEMPERATURE, DEFAULT_TEMPERATURE)
-    model = entry.options.get(CONF_CHAT_MODEL)
-    engine = entry.data.get(CONF_ENGINE) or "gigachat"
+    max_tokens = entry.options.get(CONF_MAX_TOKENS)
+
     entry.async_on_unload(entry.add_update_listener(update_listener))
-    if engine == 'gigachat':
-        client = GigaChat(temperature=temperature,
-                          model=model,
-                          verbose=True,
-                          credentials=entry.data[CONF_API_KEY],
-                          verify_ssl_certs=False)
-    elif engine == 'yandexgpt':
-        if model == "YandexGPT":
-            model_url = "gpt://" + entry.data[CONF_FOLDER_ID] + "/yandexgpt/latest"
-        elif model == 'YandexGPT Lite':
-            model_url = "gpt://" + entry.data[CONF_FOLDER_ID] + "/yandexgpt-lite/latest"
-        elif model == 'Summary':
-            model_url = "gpt://" + entry.data[CONF_FOLDER_ID] + "/summarization/latest"
-        else:
-            model_url = ""
-        client = ChatYandexGPT(
-                               model_uri=model_url,
-                               temperature=temperature,
-                               api_key=entry.data[CONF_API_KEY],
-                               folder_id = entry.data[CONF_FOLDER_ID])
-    else:
-        client = ChatOpenAI(model=model,
-                            temperature=temperature,
-                            openai_api_key=entry.data[CONF_API_KEY])
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = client
+
+    common_args = {
+        "verbose": False,
+        "model": model
+    }
+    if temperature is not None:
+        common_args["temperature"] = temperature
+    if max_tokens is not None:
+        common_args["max_tokens"] = max_tokens
+
+    _client = await get_client(engine, common_args, entry)
+
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = _client
     conversation.async_set_agent(hass, entry, GigaChatAI(hass, entry))
     return True
+
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload GigaChain."""
@@ -76,12 +60,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     conversation.async_unset_agent(hass, entry)
     return True
 
+
 class GigaChatAI(conversation.AbstractConversationAgent):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize the agent."""
         self.hass = hass
         self.entry = entry
-        self.history: dict[str, list[dict]] = {}
+        self.history: dict[str, list[BaseMessage]] = {}
 
     @property
     def supported_languages(self) -> list[str] | Literal["*"]:
@@ -89,7 +74,7 @@ class GigaChatAI(conversation.AbstractConversationAgent):
         return MATCH_ALL
 
     async def async_process(
-        self, user_input: agent.ConversationInput
+            self, user_input: agent.ConversationInput
     ) -> agent.ConversationResult:
         """Process a sentence."""
         raw_prompt = self.entry.options.get(CONF_PROMPT, DEFAULT_PROMPT)
@@ -97,25 +82,34 @@ class GigaChatAI(conversation.AbstractConversationAgent):
             conversation_id = user_input.conversation_id
             messages = self.history[conversation_id]
         else:
-            conversation_id = ulid.ulid_now()
+            conversation_id = ulid.ulid()
             prompt = self._async_generate_prompt(raw_prompt)
-            messages = [
-                SystemMessage(
-                content=prompt
-                )
-            ]
-
+            messages = [SystemMessage(content=prompt)]
         messages.append(HumanMessage(content=user_input.text))
-        client = self.hass.data[DOMAIN][self.entry.entry_id]
-        res = client(messages)
+        _client = self.hass.data[DOMAIN][self.entry.entry_id]
+
+        try:
+            res = _client(messages)
+        except Exception as err:
+            LOGGER.exception("Unexpected exception %s", type(err))
+            response = intent.IntentResponse(language=user_input.language)
+            response.async_set_error(
+                intent.IntentResponseErrorCode.UNKNOWN,
+                f"Houston we have a problem: {err}",
+            )
+            return agent.ConversationResult(
+                conversation_id=conversation_id, response=response
+            )
+
         messages.append(res)
         self.history[conversation_id] = messages
+        LOGGER.debug(messages)
 
         response = intent.IntentResponse(language=user_input.language)
         response.async_set_speech(res.content)
+        LOGGER.debug(response)
         return agent.ConversationResult(
-            conversation_id=conversation_id,
-            response=response
+            conversation_id=conversation_id, response=response
         )
 
     def _async_generate_prompt(self, raw_prompt: str) -> str:
