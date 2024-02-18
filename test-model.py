@@ -1,7 +1,7 @@
 from langchain.schema import HumanMessage, SystemMessage
 from langchain_community.chat_models import ChatAnyscale
 
-chat = ChatAnyscale(model="eta-llama/Llama-2-70b-chat-hf", anyscale_api_key="<key>")
+chat = ChatAnyscale(model="meta-llama/Llama-2-70b-chat-hf", anyscale_api_key="<key>")
 
 messages = [
     SystemMessage(

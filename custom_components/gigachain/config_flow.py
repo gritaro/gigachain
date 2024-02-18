@@ -1,39 +1,34 @@
 """Config flow for GigaChain integration."""
+
 from __future__ import annotations
 
+import logging
+import types
+from types import MappingProxyType
 from typing import Any
 
 import voluptuous as vol
-
+from gigachat.exceptions import ResponseError
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
-import types
-from types import MappingProxyType
 from homeassistant.helpers import selector
-from homeassistant.helpers.selector import (
-    TemplateSelector
-)
-import logging
+from homeassistant.helpers.selector import (NumberSelector,
+                                            NumberSelectorConfig,
+                                            SelectSelectorMode,
+                                            TemplateSelector)
+from httpx import ConnectError
+
+from .client_util import validate_client
+from .const import (CONF_API_KEY, CONF_CHAT_MODEL, CONF_CHAT_MODEL_USER,
+                    CONF_ENGINE, CONF_ENGINE_OPTIONS, CONF_FOLDER_ID,
+                    CONF_MAX_TOKENS, CONF_PROFANITY, CONF_PROMPT,
+                    CONF_SKIP_VALIDATION, CONF_TEMPERATURE, DEFAULT_CHAT_MODEL,
+                    DEFAULT_MODELS, DEFAULT_PROFANITY, DEFAULT_PROMPT,
+                    DEFAULT_SKIP_VALIDATION, DEFAULT_TEMPERATURE, DOMAIN,
+                    ID_GIGACHAT, ID_OPENAI, ID_YANDEX_GPT, UNIQUE_ID,
+                    UNIQUE_ID_GIGACHAT)
 
 LOGGER = logging.getLogger(__name__)
-
-from .const import (
-    DOMAIN,
-    CONF_ENGINE,
-    CONF_API_KEY,
-    CONF_FOLDER_ID,
-    CONF_CHAT_MODEL,
-    CONF_TEMPERATURE,
-    CONF_ENGINE_OPTIONS,
-    CONF_PROMPT,
-    CONF_MAX_TOKENS,
-    DEFAULT_TEMPERATURE,
-    DEFAULT_MODELS,
-    DEFAULT_MAX_TOKENS,
-    DEFAULT_CHAT_MODEL,
-    DEFAULT_PROMPT,
-    UNIQUE_ID
-)
 
 STEP_USER_SCHEMA = vol.Schema(
     {
@@ -42,31 +37,38 @@ STEP_USER_SCHEMA = vol.Schema(
         ),
     }
 )
-
 STEP_API_KEY_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_API_KEY): str
+        vol.Required(CONF_API_KEY): str,
+        vol.Optional(
+            CONF_SKIP_VALIDATION, default=DEFAULT_SKIP_VALIDATION
+        ): bool,
     }
 )
 STEP_YANDEXGPT_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_API_KEY): str,
-        vol.Required(CONF_FOLDER_ID): str
+        vol.Required(CONF_FOLDER_ID): str,
+        vol.Optional(
+            CONF_SKIP_VALIDATION, default=DEFAULT_SKIP_VALIDATION
+        ): bool,
     }
 )
 
 ENGINE_SCHEMA = {
-    "gigachat": STEP_API_KEY_SCHEMA,
-    "yandexgpt": STEP_YANDEXGPT_SCHEMA,
-    "openai": STEP_API_KEY_SCHEMA
+    ID_GIGACHAT: STEP_API_KEY_SCHEMA,
+    ID_YANDEX_GPT: STEP_YANDEXGPT_SCHEMA,
+    ID_OPENAI: STEP_API_KEY_SCHEMA,
 }
 
 DEFAULT_OPTIONS = types.MappingProxyType(
     {
         CONF_PROMPT: DEFAULT_PROMPT,
         CONF_CHAT_MODEL: DEFAULT_CHAT_MODEL,
+        CONF_CHAT_MODEL_USER: DEFAULT_CHAT_MODEL,
     }
 )
+
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for GigaChain."""
@@ -74,50 +76,67 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
+            self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Handle the initial step."""
         if user_input is None:
-            return self.async_show_form(step_id="user",
-                                        data_schema=STEP_USER_SCHEMA)
+            return self.async_show_form(step_id="user", data_schema=STEP_USER_SCHEMA)
 
         engine = user_input[CONF_ENGINE]
         unique_id = UNIQUE_ID[engine]
         await self.async_set_unique_id(unique_id)
         self._abort_if_unique_id_configured()
-        return self.async_show_form(
-            step_id=engine, data_schema=ENGINE_SCHEMA[engine]
-        )
+        return self.async_show_form(step_id=engine, data_schema=ENGINE_SCHEMA[engine])
 
     async def async_step_gigachat(
-        self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        return await self.common_model_async_step("gigachat", user_input)
+            self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        return await self.common_model_async_step(ID_GIGACHAT, user_input)
 
     async def async_step_yandexgpt(
-        self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        return await self.common_model_async_step("yandexgpt", user_input)
-
-    async def async_step_openai(self, user_input: dict[str, Any] | None = None
+            self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        return await self.common_model_async_step("openai", user_input)
+        return await self.common_model_async_step(ID_YANDEX_GPT, user_input)
+
+    async def async_step_openai(
+            self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        return await self.common_model_async_step(ID_OPENAI, user_input)
 
     async def common_model_async_step(self, engine, user_input):
         if user_input is None:
             return self.async_show_form(
                 step_id=engine, data_schema=ENGINE_SCHEMA[engine]
             )
+
+        errors = {}
         user_input[CONF_ENGINE] = engine
         unique_id = UNIQUE_ID[engine]
-        await self.async_set_unique_id(unique_id)
-        self._abort_if_unique_id_configured()
-        return self.async_create_entry(title=unique_id, data=user_input)
+        try:
+            await validate_client(self.hass, user_input)
+        except ConnectError:
+            errors["base"] = "cannot_connect"
+        except ResponseError:
+            errors["base"] = "invalid_response"
+        except Exception as inst:
+            LOGGER.exception("Unexpected exception %s", type(inst))
+            errors["base"] = "unknown"
+        else:
+            await self.async_set_unique_id(unique_id)
+            self._abort_if_unique_id_configured()
+            return self.async_create_entry(title=unique_id, data=user_input)
+
+        return self.async_show_form(
+            step_id=engine, data_schema=ENGINE_SCHEMA[engine], errors=errors
+        )
 
     @staticmethod
     def async_get_options_flow(
-        config_entry: config_entries.ConfigEntry,
+            config_entry: config_entries.ConfigEntry,
     ) -> config_entries.OptionsFlow:
         """Create the options flow."""
         return OptionsFlow(config_entry)
+
 
 class OptionsFlow(config_entries.OptionsFlow):
     """GigaChain config flow options handler."""
@@ -127,30 +146,54 @@ class OptionsFlow(config_entries.OptionsFlow):
         self.config_entry = config_entry
 
     async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
+            self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Manage the options."""
+        errors = {}
+        unique_id = self.config_entry.unique_id
+        schema = common_config_option_schema(
+            unique_id, self.config_entry.options
+        )
         if user_input is not None:
-            return self.async_create_entry(title=self.config_entry.unique_id, data=user_input)
-        schema = common_config_option_schema(self.config_entry.unique_id, self.config_entry.options)
+            model = user_input.get(CONF_CHAT_MODEL_USER)
+            if model == " " or model == "" or model is None:
+                model = user_input.get(CONF_CHAT_MODEL)
+            if model == " " or model == "" or model is None:
+                errors["base"] = "model_required"
+                return self.async_show_form(
+                    step_id="init", data_schema=schema, errors=errors
+                )
+
+            return self.async_create_entry(title=unique_id, data=user_input)
+
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema(schema),
+            data_schema=schema,
         )
 
-def common_config_option_schema(unique_id: str, options: MappingProxyType[str, Any]) -> dict:
+
+def common_config_option_schema(
+        unique_id: str, options: MappingProxyType[str, Any]
+) -> vol.Schema:
     """Return a schema for GigaChain completion options."""
     if not options:
         options = DEFAULT_OPTIONS
-    return {
+    schema = vol.Schema({
         vol.Optional(
             CONF_CHAT_MODEL,
             description={
                 "suggested_value": options.get(CONF_CHAT_MODEL),
-            }, default="none",
+            },
+            default="none",
         ): selector.SelectSelector(
-            selector.SelectSelectorConfig(options=DEFAULT_MODELS[unique_id]),
+            selector.SelectSelectorConfig(mode=SelectSelectorMode("dropdown"), options=DEFAULT_MODELS[unique_id]),
         ),
+        vol.Optional(
+            CONF_CHAT_MODEL_USER,
+            description={
+                "suggested_value": options.get(CONF_CHAT_MODEL_USER)
+            },
+        ): str,
         vol.Optional(
             CONF_PROMPT,
             description={"suggested_value": options[CONF_PROMPT]},
@@ -159,17 +202,25 @@ def common_config_option_schema(unique_id: str, options: MappingProxyType[str, A
         vol.Optional(
             CONF_TEMPERATURE,
             description={
-                "suggested_value": options.get(CONF_TEMPERATURE,
-                                               DEFAULT_TEMPERATURE)
+                "suggested_value": options.get(CONF_TEMPERATURE, DEFAULT_TEMPERATURE)
             },
             default=DEFAULT_TEMPERATURE,
-        ): float,
+        ): NumberSelector(NumberSelectorConfig(min=0, max=1, step=0.05)),
         vol.Optional(
             CONF_MAX_TOKENS,
             description={
-                "suggested_value": options.get(CONF_MAX_TOKENS,
-                                               DEFAULT_MAX_TOKENS)
+                "suggested_value": options.get(CONF_MAX_TOKENS)
             },
-            default=DEFAULT_MAX_TOKENS,
-        ): int,
-    }
+        ): int
+    })
+    if unique_id == UNIQUE_ID_GIGACHAT:
+        schema = schema.extend(
+            {
+                vol.Optional(CONF_PROFANITY,
+                             description={
+                                 "suggested_value": options.get(CONF_PROFANITY, DEFAULT_PROFANITY)
+                             },
+                             default=DEFAULT_PROFANITY): bool
+            }
+        )
+    return schema
