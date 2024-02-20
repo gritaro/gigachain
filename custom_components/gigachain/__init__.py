@@ -3,14 +3,14 @@
 import logging
 from typing import Literal
 
+from home_assistant_intents import get_languages
 from homeassistant.components import conversation
 from homeassistant.components.conversation import agent
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import MATCH_ALL
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import intent, template
 from homeassistant.util import ulid
-from langchain.schema import BaseMessage, HumanMessage, SystemMessage
+from langchain.schema import BaseMessage, HumanMessage, SystemMessage, AIMessage
 
 from .client_util import get_client
 from .const import (CONF_API_KEY, CONF_CHAT_MODEL, CONF_CHAT_MODEL_USER,
@@ -50,7 +50,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _client = await get_client(engine, common_args, entry)
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = _client
-    conversation.async_set_agent(hass, entry, GigaChatAI(hass, entry))
+    _agent = GigaChatAI(hass, entry)
+    await _agent.async_initialize(
+        hass.data.get("conversation_config")
+    )
+    conversation.async_set_agent(hass, entry, _agent)
     return True
 
 
@@ -61,9 +65,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-class GigaChatAI(conversation.AbstractConversationAgent):
+class GigaChatAI(conversation.DefaultAgent):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize the agent."""
+        super().__init__(hass)
         self.hass = hass
         self.entry = entry
         self.history: dict[str, list[BaseMessage]] = {}
@@ -71,13 +76,14 @@ class GigaChatAI(conversation.AbstractConversationAgent):
     @property
     def supported_languages(self) -> list[str] | Literal["*"]:
         """Return a list of supported languages."""
-        return MATCH_ALL
+        return get_languages()
 
     async def async_process(
             self, user_input: agent.ConversationInput
     ) -> agent.ConversationResult:
         """Process a sentence."""
         raw_prompt = self.entry.options.get(CONF_PROMPT, DEFAULT_PROMPT)
+
         if user_input.conversation_id in self.history:
             conversation_id = user_input.conversation_id
             messages = self.history[conversation_id]
@@ -85,7 +91,18 @@ class GigaChatAI(conversation.AbstractConversationAgent):
             conversation_id = ulid.ulid()
             prompt = self._async_generate_prompt(raw_prompt)
             messages = [SystemMessage(content=prompt)]
+
         messages.append(HumanMessage(content=user_input.text))
+
+        default_agent_response = await super(GigaChatAI, self).async_process(user_input)
+
+        if default_agent_response.response.intent:
+            messages.append(AIMessage(content=default_agent_response.response.speech.get("plain").get("speech")))
+            self.history[conversation_id] = messages
+            return agent.ConversationResult(
+                conversation_id=conversation_id, response=default_agent_response.response
+            )
+
         _client = self.hass.data[DOMAIN][self.entry.entry_id]
 
         try:
@@ -103,7 +120,7 @@ class GigaChatAI(conversation.AbstractConversationAgent):
 
         messages.append(res)
         self.history[conversation_id] = messages
-        LOGGER.debug(messages)
+        LOGGER.info(messages)
 
         response = intent.IntentResponse(language=user_input.language)
         response.async_set_speech(res.content)
