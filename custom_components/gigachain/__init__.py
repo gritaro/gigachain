@@ -17,6 +17,8 @@ from .const import (CONF_API_KEY, CONF_CHAT_MODEL, CONF_CHAT_MODEL_USER,
                     CONF_ENGINE, CONF_FOLDER_ID, CONF_MAX_TOKENS,
                     CONF_PROFANITY, CONF_PROMPT, CONF_TEMPERATURE,
                     DEFAULT_CHAT_MODEL, DEFAULT_PROFANITY, DEFAULT_PROMPT,
+                    CONF_PROCESS_BUILTIN_SENTENCES, DEFAULT_PROCESS_BUILTIN_SENTENCES,
+                    CONF_CHAT_HISTORY, DEFAULT_CHAT_HISTORY,
                     DEFAULT_TEMPERATURE, DOMAIN, ID_GIGACHAT)
 
 LOGGER = logging.getLogger(__name__)
@@ -83,8 +85,9 @@ class GigaChatAI(conversation.DefaultAgent):
     ) -> agent.ConversationResult:
         """Process a sentence."""
         raw_prompt = self.entry.options.get(CONF_PROMPT, DEFAULT_PROMPT)
+        chat_history_enabled = self.entry.options.get(CONF_CHAT_HISTORY, DEFAULT_CHAT_HISTORY)
 
-        if user_input.conversation_id in self.history:
+        if user_input.conversation_id in self.history and chat_history_enabled:
             conversation_id = user_input.conversation_id
             messages = self.history[conversation_id]
         else:
@@ -94,14 +97,17 @@ class GigaChatAI(conversation.DefaultAgent):
 
         messages.append(HumanMessage(content=user_input.text))
 
-        default_agent_response = await super(GigaChatAI, self).async_process(user_input)
+        use_builtin_sentences = self.entry.options.get(CONF_PROCESS_BUILTIN_SENTENCES,
+                                                       DEFAULT_PROCESS_BUILTIN_SENTENCES)
+        if use_builtin_sentences:
+            default_agent_response = await super(GigaChatAI, self).async_process(user_input)
 
-        if default_agent_response.response.intent:
-            messages.append(AIMessage(content=default_agent_response.response.speech.get("plain").get("speech")))
-            self.history[conversation_id] = messages
-            return agent.ConversationResult(
-                conversation_id=conversation_id, response=default_agent_response.response
-            )
+            if default_agent_response.response.intent:
+                messages.append(AIMessage(content=default_agent_response.response.speech.get("plain").get("speech")))
+                self.history[conversation_id] = messages
+                return agent.ConversationResult(
+                    conversation_id=conversation_id, response=default_agent_response.response
+                )
 
         _client = self.hass.data[DOMAIN][self.entry.entry_id]
 
@@ -124,7 +130,7 @@ class GigaChatAI(conversation.DefaultAgent):
 
         response = intent.IntentResponse(language=user_input.language)
         response.async_set_speech(res.content)
-        LOGGER.debug(response)
+        LOGGER.info(response)
         return agent.ConversationResult(
             conversation_id=conversation_id, response=response
         )

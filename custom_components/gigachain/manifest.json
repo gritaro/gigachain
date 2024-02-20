@@ -14,5 +14,5 @@
     "gigachain==0.1.4",
     "yandexcloud==0.259.0"
   ],
-  "version": "0.1.4"
+  "version": "0.1.5"
 }

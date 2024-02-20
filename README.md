@@ -82,9 +82,20 @@ Language model is used for text generation
 A value that determines the level of creativity and risk-taking the model should use when generating text. 
 A higher temperature means the model is more likely to generate unexpected results, while a lower temperature results in more deterministic results.
  
-* Max Tokens (max_tokens, int)
+* Max Tokens (max_tokens, `int`)
 
 The maximum number of words or “tokens” that the AI model should generate in its completion of the prompt.
+
+* _Process HA Builtin Sentences_ (process_builtin_sentences, `bool`)
+
+If enabled, integration first will pass all sentences to [HA built-in sentence processor](https://www.home-assistant.io/voice_control/builtin_sentences).
+This is default behaviour of default Home Assistant Voice Assistant engine which allow you to use commands something like `turn on the living room light`.
+If sentence will not be recognized by HA, it will be passed further to chosen LLM.
+
+* Chat History (chat_history, `bool`)
+
+Keep all conversation history. 
+
 
 ## Using as Voice Assistant
 Create and configure Voice Assistant:
