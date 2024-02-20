@@ -10,7 +10,7 @@ repository:
   description: This custom component for Home Assistant allows you to generate text responses using GigaChain LLM framework (like GigaChat or YandexGPT and ChatGPT).
 
   # A URL with more information about the repository
-  homepage: https://github.com/gritaro/gigachat
+  homepage: https://github.com/gritaro/gigachain
 
   # A comma-separated list of topics to set on the repository
   topics: openai, gpt, homeassistant, voice-assistant, hacs-integration, chatgpt, yandexgpt, gigachat, gigachain, langchain

@@ -14,6 +14,10 @@ DEFAULT_PROFANITY = False
 CONF_MAX_TOKENS = "max_tokens"
 CONF_SKIP_VALIDATION = "skip_validation"
 DEFAULT_SKIP_VALIDATION = False
+CONF_PROCESS_BUILTIN_SENTENCES = "process_builtin_sentences"
+DEFAULT_PROCESS_BUILTIN_SENTENCES = True
+CONF_CHAT_HISTORY = "chat_history"
+DEFAULT_CHAT_HISTORY = True
 CONF_PROMPT = "prompt"
 DEFAULT_PROMPT = """Ты HAL 9000, компьютер из цикла произведений «Космическая одиссея» Артура Кларка, обладающий способностью к самообучению.
 Мы находимся в умном доме под управлением системы Home Assistant.

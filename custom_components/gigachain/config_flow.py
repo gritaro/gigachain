@@ -26,6 +26,8 @@ from .const import (CONF_API_KEY, CONF_CHAT_MODEL, CONF_CHAT_MODEL_USER,
                     DEFAULT_MODELS, DEFAULT_PROFANITY, DEFAULT_PROMPT,
                     DEFAULT_SKIP_VALIDATION, DEFAULT_TEMPERATURE, DOMAIN,
                     ID_GIGACHAT, ID_OPENAI, ID_YANDEX_GPT, UNIQUE_ID,
+                    CONF_PROCESS_BUILTIN_SENTENCES, DEFAULT_PROCESS_BUILTIN_SENTENCES,
+                    CONF_CHAT_HISTORY, DEFAULT_CHAT_HISTORY,
                     UNIQUE_ID_GIGACHAT)
 
 LOGGER = logging.getLogger(__name__)
@@ -66,6 +68,7 @@ DEFAULT_OPTIONS = types.MappingProxyType(
         CONF_PROMPT: DEFAULT_PROMPT,
         CONF_CHAT_MODEL: DEFAULT_CHAT_MODEL,
         CONF_CHAT_MODEL_USER: DEFAULT_CHAT_MODEL,
+        CONF_PROCESS_BUILTIN_SENTENCES: DEFAULT_PROCESS_BUILTIN_SENTENCES,
     }
 )
 
@@ -211,7 +214,19 @@ def common_config_option_schema(
             description={
                 "suggested_value": options.get(CONF_MAX_TOKENS)
             },
-        ): int
+        ): int,
+        vol.Optional(
+            CONF_PROCESS_BUILTIN_SENTENCES,
+            description={
+                "suggested_value": options.get(CONF_PROCESS_BUILTIN_SENTENCES, DEFAULT_PROCESS_BUILTIN_SENTENCES)
+            },
+            default=DEFAULT_PROCESS_BUILTIN_SENTENCES): bool,
+        vol.Optional(
+            CONF_CHAT_HISTORY,
+            description={
+                "suggested_value": options.get(CONF_CHAT_HISTORY, DEFAULT_CHAT_HISTORY)
+            },
+            default=DEFAULT_CHAT_HISTORY): bool
     })
     if unique_id == UNIQUE_ID_GIGACHAT:
         schema = schema.extend(

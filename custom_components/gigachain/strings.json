@@ -54,7 +54,9 @@
           "model_openai": "Custom Model Name (leave empty to use from list above)",
           "temperature": "Temperature",
           "max_tokens": "Max Tokens",
-          "profanity": "Profanity"
+          "profanity": "Profanity",
+          "process_builtin_sentences": "Process HA Builtin Sentences",
+          "chat_history": "Chat History"
         }
       }
     }
