@@ -49,7 +49,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if max_tokens is not None:
         common_args["max_tokens"] = max_tokens
 
-    _client = await get_client(engine, common_args, entry)
+    _client = await get_client(hass, engine, entry, common_args)
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = _client
     _agent = GigaChatAI(hass, entry)
@@ -126,11 +126,11 @@ class GigaChatAI(conversation.DefaultAgent):
 
         messages.append(res)
         self.history[conversation_id] = messages
-        LOGGER.info(messages)
+        LOGGER.debug(messages)
 
         response = intent.IntentResponse(language=user_input.language)
         response.async_set_speech(res.content)
-        LOGGER.info(response)
+        LOGGER.debug(response)
         return agent.ConversationResult(
             conversation_id=conversation_id, response=response
         )

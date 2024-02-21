@@ -23,12 +23,12 @@ from .const import (CONF_API_KEY, CONF_CHAT_MODEL, CONF_CHAT_MODEL_USER,
                     CONF_ENGINE, CONF_ENGINE_OPTIONS, CONF_FOLDER_ID,
                     CONF_MAX_TOKENS, CONF_PROFANITY, CONF_PROMPT,
                     CONF_SKIP_VALIDATION, CONF_TEMPERATURE, DEFAULT_CHAT_MODEL,
-                    DEFAULT_MODELS, DEFAULT_PROFANITY, DEFAULT_PROMPT,
+                    ENGINE_MODELS, DEFAULT_PROFANITY, DEFAULT_PROMPT,
                     DEFAULT_SKIP_VALIDATION, DEFAULT_TEMPERATURE, DOMAIN,
                     ID_GIGACHAT, ID_OPENAI, ID_YANDEX_GPT, UNIQUE_ID,
                     CONF_PROCESS_BUILTIN_SENTENCES, DEFAULT_PROCESS_BUILTIN_SENTENCES,
                     CONF_CHAT_HISTORY, DEFAULT_CHAT_HISTORY,
-                    UNIQUE_ID_GIGACHAT)
+                    UNIQUE_ID_GIGACHAT, ID_ANYSCALE)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -61,6 +61,7 @@ ENGINE_SCHEMA = {
     ID_GIGACHAT: STEP_API_KEY_SCHEMA,
     ID_YANDEX_GPT: STEP_YANDEXGPT_SCHEMA,
     ID_OPENAI: STEP_API_KEY_SCHEMA,
+    ID_ANYSCALE: STEP_API_KEY_SCHEMA,
 }
 
 DEFAULT_OPTIONS = types.MappingProxyType(
@@ -100,6 +101,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         return await self.common_model_async_step(ID_YANDEX_GPT, user_input)
+
+    async def async_step_anyscale(
+            self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        return await self.common_model_async_step(ID_ANYSCALE, user_input)
 
     async def async_step_openai(
             self, user_input: dict[str, Any] | None = None
@@ -189,7 +195,7 @@ def common_config_option_schema(
             },
             default="none",
         ): selector.SelectSelector(
-            selector.SelectSelectorConfig(mode=SelectSelectorMode("dropdown"), options=DEFAULT_MODELS[unique_id]),
+            selector.SelectSelectorConfig(mode=SelectSelectorMode("dropdown"), options=ENGINE_MODELS[unique_id]),
         ),
         vol.Optional(
             CONF_CHAT_MODEL_USER,

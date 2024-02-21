@@ -11,8 +11,8 @@
   "issue_tracker": "https://github.com/gritaro/gigachain/issues",
   "requirements": [
     "home-assistant-intents",
-    "gigachain==0.1.4",
-    "yandexcloud==0.259.0"
+    "gigachain==0.1.7.1",
+    "yandexcloud==0.260.0"
   ],
-  "version": "0.1.5"
+  "version": "0.1.6"
 }
