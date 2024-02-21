@@ -23,6 +23,7 @@ Currently supported LMMs:
 * [GigaChat](#GigaChat) (<a href="https://developers.sber.ru/docs/ru/gigachat/overview">Sber LLM</a>)
 * [YandexGPT](#YandexGPT)
 * [OpenAI](#OpenAI) aka ChatGPT (not tested)
+* [Anyscale](#Anyscale)
 
 ## Installation
 Install it like any other HACS integration.
@@ -64,6 +65,9 @@ You can find Folder ID using this <a href="https://console.cloud.yandex.com/fold
 
 ### OpenAI
 Create API key here https://platform.openai.com/account/api-keys
+
+### Anyscale
+[Register account](https://app.endpoints.anyscale.com/welcome) and create API key [here](https://app.endpoints.anyscale.com/credentials)
 
 ## Configuration
 
