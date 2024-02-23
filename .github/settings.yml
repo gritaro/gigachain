@@ -4,7 +4,7 @@ repository:
   # See https://docs.github.com/en/rest/reference/repos#update-a-repository for all available settings.
 
   # The name of the repository. Changing this will rename the repository
-  name: gigachat
+  name: gigachain
 
   # A short description of the repository that will show up on GitHub
   description: This custom component for Home Assistant allows you to generate text responses using GigaChain LLM framework (like GigaChat or YandexGPT and ChatGPT).
@@ -13,7 +13,7 @@ repository:
   homepage: https://github.com/gritaro/gigachain
 
   # A comma-separated list of topics to set on the repository
-  topics: openai, gpt, homeassistant, voice-assistant, hacs-integration, chatgpt, yandexgpt, gigachat, gigachain, langchain
+  topics: openai, gpt, homeassistant, voice-assistant, hacs-integration, chatgpt, yandexgpt, anyscale, gigachat, gigachain, langchain
 
   # Either `true` to make the repository private, or `false` to make it public.
   private: false
