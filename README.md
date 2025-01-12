@@ -11,12 +11,12 @@
 </div>
 
 # GigaChain integration with Home Assistant
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
+[![HACS](https://img.shields.io/badge/HACS-Default-orange.svg)](https://hacs.xyz)
 [![HACS Action](https://github.com/gritaro/gigachain/actions/workflows/hacs.yaml/badge.svg)](https://github.com/gritaro/gigachain/actions/workflows/hacs.yaml)
 [![Validate with hassfest](https://github.com/gritaro/gigachain/actions/workflows/hassfest.yaml/badge.svg)](https://github.com/gritaro/gigachain/actions/workflows/hassfest.yaml)
 [![Generic badge](https://img.shields.io/github/v/release/gritaro/gigachain)](https://github.com/gritaro/gigachain)
-[![Downloads for latest release](https://img.shields.io/github/downloads/gritaro/gigachain/latest/total.svg)](https://github.com/gritaro/gigachain/releases/latest)
-[![Github All Releases](https://img.shields.io/github/downloads/gritaro/gigachain/total.svg)](https://github.com/gritaro/gigachain/releases)
+[![Downloads for latest release](https://img.shields.io/github/downloads/gritaro/gigachain/latest/total)](https://github.com/gritaro/gigachain/releases/latest)
+[![Github All Releases](https://img.shields.io/github/downloads/gritaro/gigachain/total)](https://github.com/gritaro/gigachain/releases)
 
 This integration implements Voice Assistant for Home Assistant using GigaChain framework.
 Currently supported LMMs:
