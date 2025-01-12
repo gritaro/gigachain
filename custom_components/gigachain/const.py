@@ -60,7 +60,6 @@ CONF_ENGINE_OPTIONS = [
     selector.SelectOptionDict(value=ID_GIGACHAT, label=UNIQUE_ID_GIGACHAT),
     selector.SelectOptionDict(value=ID_YANDEX_GPT, label=UNIQUE_ID_YANDEX_GPT),
     selector.SelectOptionDict(value=ID_OPENAI, label=UNIQUE_ID_OPENAI),
-    selector.SelectOptionDict(value=ID_ANYSCALE, label=UNIQUE_ID_ANYSCALE),
 ]
 MODELS_GIGACHAT = [
     " ",
@@ -71,6 +70,7 @@ MODELS_GIGACHAT = [
 ]
 DEFAULT_MODELS_YANDEX_GPT = [" ", "YandexGPT", "YandexGPT Lite", "Summary"]
 MODELS_ANYSCALE = [" ",
+                           "meta-llama/Meta-Llama-3-8B-Instruct",
                            "codellama/CodeLlama-34b-Instruct-hf",
                            "Open-Orca/Mistral-7B-OpenOrca",
                            "mistralai/Mixtral-8x7B-Instruct-v0.1",
@@ -115,7 +115,7 @@ DEFAULT_MODEL = {
     ID_GIGACHAT: None,
     ID_OPENAI: "gpt-3.5-turbo",
     ID_YANDEX_GPT: None,
-    ID_ANYSCALE: "meta-llama/Llama-2-7b-chat-hf"
+    ID_ANYSCALE: "meta-llama/Meta-Llama-3-8B-Instruct"
 }
 
 CONF_API_KEY = "api_key"

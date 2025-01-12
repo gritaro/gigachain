@@ -28,7 +28,7 @@ from .const import (CONF_API_KEY, CONF_CHAT_MODEL, CONF_CHAT_MODEL_USER,
                     ID_GIGACHAT, ID_OPENAI, ID_YANDEX_GPT, UNIQUE_ID,
                     CONF_PROCESS_BUILTIN_SENTENCES, DEFAULT_PROCESS_BUILTIN_SENTENCES,
                     CONF_CHAT_HISTORY, DEFAULT_CHAT_HISTORY,
-                    UNIQUE_ID_GIGACHAT, ID_ANYSCALE)
+                    UNIQUE_ID_GIGACHAT, UNIQUE_ID_ANYSCALE, ID_ANYSCALE)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -164,6 +164,11 @@ class OptionsFlow(config_entries.OptionsFlow):
             unique_id, self.config_entry.options
         )
         if user_input is not None:
+            errors["base"] = "unsupported"
+            if unique_id == UNIQUE_ID_ANYSCALE:
+                return self.async_show_form(
+                    step_id="init", data_schema=schema, errors=errors
+                )
             model = user_input.get(CONF_CHAT_MODEL_USER)
             if model == " " or model == "" or model is None:
                 model = user_input.get(CONF_CHAT_MODEL)
@@ -244,4 +249,15 @@ def common_config_option_schema(
                              default=DEFAULT_PROFANITY): bool
             }
         )
+    if unique_id == UNIQUE_ID_ANYSCALE:
+        schema = vol.Schema({
+            vol.Optional(
+                CONF_CHAT_MODEL,
+                description={
+                    "suggested_value": "Not supported anymore, please remove this entry",
+                    "type": "readonly",
+                },
+                default="Not supported anymore",
+            ): str,
+        })
     return schema
