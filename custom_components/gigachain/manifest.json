@@ -11,8 +11,9 @@
   "issue_tracker": "https://github.com/gritaro/gigachain/issues",
   "requirements": [
     "home-assistant-intents",
-    "gigachain==0.1.7.1",
+    "gigachain @ git+https://github.com/gritaro/gigachain-fork@dev#subdirectory=libs/langchain",
+    "gigachain-community @ git+https://github.com/gritaro/gigachain-fork@dev#subdirectory=libs/community",
     "yandexcloud==0.260.0"
   ],
-  "version": "0.1.7"
+  "version": "0.1.8"
 }
