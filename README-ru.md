@@ -23,7 +23,7 @@
 * [GigaChat](#GigaChat) (<a href="https://developers.sber.ru/docs/ru/gigachat/overview">русскоязычная (но не только) нейросеть от Сбера</a>)
 * [YandexGPT](#YandexGPT)
 * [OpenAI](#OpenAI) ака ChatGPT (не тестируется)
-* [Anyscale](#Anyscale)
+* [~~Anyscale~~](#Anyscale)
 
 ## Установка
 Устанавливается как и любая HACS интеграция.
@@ -71,8 +71,8 @@
 ### OpenAI
 Для генерации ключа проследуйте по ссылке https://platform.openai.com/account/api-keys
 
-### Anyscale
-[Зарегистрируйтесь](https://app.endpoints.anyscale.com/welcome) и создайте API ключ [здесь](https://app.endpoints.anyscale.com/credentials)
+### ~~Anyscale~~
+[~~Зарегистрируйтесь~~](https://app.endpoints.anyscale.com/welcome) ~~и создайте API ключ~~ [~~здесь~~](https://app.endpoints.anyscale.com/credentials) На данный момент не поддерживается.
 
 ## Конфигурация
 

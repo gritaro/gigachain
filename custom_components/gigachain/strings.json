@@ -48,7 +48,8 @@
   },
   "options": {
     "error": {
-      "model_required": "Either Model or Custom Model required"
+      "model_required": "Either Model or Custom Model required",
+      "unsupported": "Unsupported integration entry"
     },
     "step": {
       "init": {
