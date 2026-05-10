@@ -48,7 +48,7 @@ async def validate_client(
             model=DEFAULT_MODEL[ID_ANYSCALE],
             openai_api_key=credentials,
         )
-    res = client([SystemMessage(content="{}")])
+    res = client.invoke([SystemMessage(content="{}")])
     LOGGER.debug(res)
 
 

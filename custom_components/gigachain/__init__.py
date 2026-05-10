@@ -109,7 +109,7 @@ class GigaChatAI(conversation.AbstractConversationAgent):
         _client = self.hass.data[DOMAIN][self.entry.entry_id]
 
         try:
-            res = _client(messages)
+            res = _client.invoke(messages)
         except Exception as err:
             LOGGER.exception("Unexpected exception %s", type(err))
             response = intent.IntentResponse(language=user_input.language)
