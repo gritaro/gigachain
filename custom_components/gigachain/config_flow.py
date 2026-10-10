@@ -239,7 +239,7 @@ def common_config_option_schema(
         ): str,
         vol.Optional(
             CONF_PROMPT,
-            description={"suggested_value": options.get(CONF_PROMPT, default_prompt)},
+            description={"suggested_value": options.get(CONF_PROMPT) or default_prompt},
             default=default_prompt,
         ): TemplateSelector(),
         vol.Optional(
