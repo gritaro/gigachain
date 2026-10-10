@@ -64,7 +64,7 @@
           "max_tokens": "Максимум токенов",
           "profanity": "Цензура",
           "process_builtin_sentences": "Использовать встроенный HA командный процессор",
-          "chat_history": "История сообщений"
+          "llm_hass_api": "Home Assistant API (управление устройствами)"
         }
       }
     }

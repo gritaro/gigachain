@@ -64,7 +64,7 @@
           "max_tokens": "Max Tokens",
           "profanity": "Profanity",
           "process_builtin_sentences": "Process HA Builtin Sentences",
-          "chat_history": "Chat History"
+          "llm_hass_api": "Home Assistant API (device control)"
         }
       }
     }
