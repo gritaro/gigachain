@@ -13,8 +13,10 @@ from .const import (
     CONF_ENGINE,
     CONF_MAX_TOKENS,
     CONF_TEMPERATURE,
+    DEFAULT_MAX_TOKENS,
     DEFAULT_TEMPERATURE,
     ID_GIGACHAT,
+    ID_YANDEX_GPT,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -35,6 +37,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         model = entry.options.get(CONF_CHAT_MODEL)
     temperature = entry.options.get(CONF_TEMPERATURE, DEFAULT_TEMPERATURE)
     max_tokens = entry.options.get(CONF_MAX_TOKENS)
+    if max_tokens is None and engine == ID_YANDEX_GPT:
+        max_tokens = DEFAULT_MAX_TOKENS
 
     entry.async_on_unload(entry.add_update_listener(update_listener))
 

@@ -11,12 +11,12 @@ Fixed Version 2026.5
 
 # GigaChain integration with Home Assistant
 
-[HACS](https://hacs.xyz)
-[HACS Action](https://github.com/gritaro/gigachain/actions/workflows/hacs.yaml)
-[Validate with hassfest](https://github.com/gritaro/gigachain/actions/workflows/hassfest.yaml)
-[Generic badge](https://github.com/gritaro/gigachain)
-[Downloads for latest release](https://github.com/gritaro/gigachain/releases/latest)
-[Github All Releases](https://github.com/gritaro/gigachain/releases)
+[![HACS](https://img.shields.io/badge/HACS-Default-orange.svg)](https://hacs.xyz)
+[![HACS Action](https://github.com/gritaro/gigachain/actions/workflows/hacs.yaml/badge.svg)](https://github.com/gritaro/gigachain/actions/workflows/hacs.yaml)
+[![Validate with hassfest](https://github.com/gritaro/gigachain/actions/workflows/hassfest.yaml/badge.svg)](https://github.com/gritaro/gigachain/actions/workflows/hassfest.yaml)
+[![Generic badge](https://img.shields.io/github/v/release/gritaro/gigachain)](https://github.com/gritaro/gigachain)
+[![Downloads for latest release](https://img.shields.io/github/downloads/gritaro/gigachain/latest/total)](https://github.com/gritaro/gigachain/releases/latest)
+[![Github All Releases](https://img.shields.io/github/downloads/gritaro/gigachain/total)](https://github.com/gritaro/gigachain/releases)
 
 This integration implements Voice Assistant for Home Assistant using GigaChain framework.
 Currently supported LMMs:
@@ -119,10 +119,46 @@ to Assist are listed in the prompt). Tune the *Prompt template* for that mode if
 > Entities must be exposed to Assist (Settings → Devices & services → Exposations)
 > to be controllable by the LLM.
 
+### Location questions
+
+Questions like "Where is my phone?", "Where is Roman?", "Is the phone at home?" are
+answered from the `person` and `device_tracker` entities exposed to Assist. The answer
+is based on Home Assistant zones: if the device coordinates fall inside a zone, that
+zone is named (e.g. "at home"), otherwise the distance to home is reported.
+
+For GigaChat/OpenAI/Anyscale this is a dedicated `GetLocation` tool (native call),
+for YandexGPT it is a `location` rule in the legacy prompt.
+
+For questions about a person, a `device_tracker` must be linked to that `person`
+(Settings → People). If an entity has no GPS coordinates, its current state is used
+(`home`/`not_home`/zone name).
+
+> There is no reverse geocoding (address from coordinates): Home Assistant core does
+> not provide it and no external geocoder is added by design. Outside zones only the
+> distance to home is reported.
+
 Chat history is now handled by Home Assistant itself (per conversation), the old
 `chat_history` option was removed.
 
 ## Using as Voice Assistant
 
 Create and configure Voice Assistant:
+
+## Known Limitations
+
+- **Cover/curtain control via native tools.** Home Assistant core does not expose
+  dedicated LLM tools for the `cover` domain, so on the native path covers are
+  controlled through the generic on/off intents (YandexGPT uses the legacy
+  `open_close` rule). Name matching may be imperfect under model-side noise.
+- **Lightweight models.** GigaChat-2 (non-Pro/Max) may produce noisy tool arguments
+  (wrong area names, English names for Russian entities) and may fail to pick the
+  right intent. GigaChat-2-Pro / GigaChat-2-Max give much more reliable control.
+- **Location questions** are answered from Home Assistant zones only; there is no
+  reverse geocoding. For "where is <person>" a `device_tracker` must be linked to
+  that person.
+- **YandexGPT** has no native function calling: control and location work through the
+  legacy prompt-based JSON scheme. Off-topic chat is supported but may be less fluent
+  than with native engines.
+- **Built-in sentences.** With *Process built-in sentences* enabled, common phrases
+  are handled by the HA built-in agent before reaching the LLM.
 

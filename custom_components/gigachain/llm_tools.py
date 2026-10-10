@@ -19,6 +19,37 @@ from langchain_core.messages import (
 
 LOGGER = logging.getLogger(__name__)
 
+LOCATION_TOOL_NAME = "GetLocation"
+
+
+def location_tool_to_langchain() -> dict[str, Any]:
+    """Return the custom tool spec used to answer location questions."""
+    return {
+        "type": "function",
+        "function": {
+            "name": LOCATION_TOOL_NAME,
+            "description": (
+                "Get the current location of a person or a device tracker, "
+                "such as a phone. Use it to answer questions like 'where is "
+                "...' or 'is ... at home'. Returns the zone name and the "
+                "distance from home."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": (
+                            "Name of the person or tracked device, or its "
+                            "entity_id."
+                        ),
+                    }
+                },
+                "required": ["name"],
+            },
+        },
+    }
+
 
 def _sanitize_schema(node: Any) -> Any:
     """Normalize a JSON schema for GigaChat function calling.

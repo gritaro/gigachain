@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from dataclasses import replace
 from typing import Literal
 
 from home_assistant_intents import get_languages
@@ -24,10 +25,11 @@ from homeassistant.helpers import (
 )
 from homeassistant.helpers import (
     intent,
+    llm,
     template,
 )
 
-from . import llm_tools
+from . import geo, llm_tools
 from .const import (
     CONF_ENGINE,
     CONF_LLM_HASS_API,
@@ -35,8 +37,10 @@ from .const import (
     CONF_PROMPT,
     DEFAULT_LLM_HASS_API,
     DEFAULT_PROCESS_BUILTIN_SENTENCES,
-    DEFAULT_PROMPT,
-    DEFAULT_PROMPT_YANDEXGPT,
+    DEFAULT_PROMPT_EN,
+    DEFAULT_PROMPT_RU,
+    DEFAULT_PROMPT_YANDEXGPT_EN,
+    DEFAULT_PROMPT_YANDEXGPT_RU,
     DOMAIN,
     ID_GIGACHAT,
     ID_YANDEX_GPT,
@@ -91,15 +95,26 @@ class GigaChatAgent(conversation.ConversationEntity):
         )
         if use_builtin_sentences:
             default_agent = agent_manager.async_get_agent(self.hass, None)
-            default_agent_response = await default_agent.async_process(user_input)
+            # Probe the built-in agent on a throwaway conversation id. Calling
+            # it with our own id would make it append its messages (including
+            # the "not understood" speech) to our ChatLog, corrupting the LLM
+            # history we later send back to the model.
+            builtin_input = replace(
+                user_input,
+                conversation_id=f"{chat_log.conversation_id}:builtin",
+            )
+            default_agent_response = await default_agent.async_process(builtin_input)
             if default_agent_response.response.intent:
-                return default_agent_response
+                return conversation.ConversationResult(
+                    conversation_id=chat_log.conversation_id,
+                    response=default_agent_response.response,
+                )
 
         try:
             await chat_log.async_provide_llm_data(
                 user_input.as_llm_context(DOMAIN),
                 llm_api_id,
-                self._user_prompt(engine),
+                self._user_prompt(engine, user_input.language),
                 user_input.extra_system_prompt,
             )
         except conversation.ConverseError as err:
@@ -107,9 +122,9 @@ class GigaChatAgent(conversation.ConversationEntity):
 
         client = self.entry.runtime_data
         if engine == ID_YANDEX_GPT:
-            await self._async_chat_with_prompt_functions(client, chat_log)
+            await self._async_chat_with_prompt_functions(client, chat_log, user_input.language)
         else:
-            await self._async_chat_with_tools(client, chat_log)
+            await self._async_chat_with_tools(client, chat_log, user_input.language)
 
         return conversation.async_get_result_from_chat_log(user_input, chat_log)
 
@@ -123,23 +138,26 @@ class GigaChatAgent(conversation.ConversationEntity):
             return None
         return llm_api_id
 
-    def _user_prompt(self, engine: str) -> str | None:
-        """Return the user prompt template."""
+    def _user_prompt(self, engine: str, language: str | None) -> str | None:
+        """Return the user prompt template for the request language."""
         if engine == ID_YANDEX_GPT:
             return None
-        return self.entry.options.get(CONF_PROMPT) or DEFAULT_PROMPT
+        if self.entry.options.get(CONF_PROMPT):
+            return self.entry.options[CONF_PROMPT]
+        return (DEFAULT_PROMPT_RU if (language or "").lower().startswith("ru")
+                else DEFAULT_PROMPT_EN)
 
     async def _async_chat_with_tools(
         self,
         client,
         chat_log: conversation.ChatLog,
+        language: str | None,
     ) -> None:
         """Generate an answer, letting the model call HA tools natively."""
-        bound_client = client
+        tools = [llm_tools.location_tool_to_langchain()]
         if chat_log.llm_api is not None and chat_log.llm_api.tools:
-            bound_client = client.bind_tools(
-                llm_tools.hass_tools_to_langchain(chat_log.llm_api)
-            )
+            tools = llm_tools.hass_tools_to_langchain(chat_log.llm_api) + tools
+        bound_client = client.bind_tools(tools)
 
         for _ in range(MAX_TOOL_ITERATIONS):
             messages = llm_tools.chat_log_to_langchain(chat_log.content)
@@ -159,11 +177,50 @@ class GigaChatAgent(conversation.ConversationEntity):
             content = llm_tools.ai_message_to_assistant_content(
                 self.entity_id, result
             )
+            if not content.tool_calls and content.content and FUNCTION_CALL_MARKER.search(
+                content.content
+            ):
+                # The model replied with a legacy function_call JSON instead of
+                # calling a tool; never show that raw JSON to the user.
+                LOGGER.warning(
+                    "Model emitted a function_call JSON instead of a tool call: %s",
+                    content.content,
+                )
+                chat_log.async_add_user_content(
+                    conversation.UserContent(
+                        content=(
+                            "Используй доступные инструменты вместо JSON и ответь "
+                            "пользователю."
+                        )
+                    )
+                )
+                continue
             if content.tool_calls:
+                external_calls = [
+                    tool_call
+                    for tool_call in content.tool_calls
+                    if tool_call.tool_name == llm_tools.LOCATION_TOOL_NAME
+                ]
+                for tool_call in external_calls:
+                    tool_call.external = True
                 async for _tool_result in chat_log.async_add_assistant_content(
                     content
                 ):
                     pass
+                for tool_call in external_calls:
+                    location = await geo.async_resolve_location(
+                        self.hass,
+                        tool_call.tool_args.get("name"),
+                        language,
+                    )
+                    chat_log.async_add_assistant_content_without_tools(
+                        conversation.ToolResultContent(
+                            agent_id=self.entity_id,
+                            tool_call_id=tool_call.id,
+                            tool_name=tool_call.tool_name,
+                            result=llm.ToolResult(data=location),
+                        )
+                    )
                 continue
             chat_log.async_add_assistant_content_without_tools(content)
             return
@@ -179,14 +236,18 @@ class GigaChatAgent(conversation.ConversationEntity):
         self,
         client,
         chat_log: conversation.ChatLog,
+        language: str | None,
     ) -> None:
         """Legacy control mode for engines without native function calling.
 
         The exposed entities are listed in the system prompt and the model is
         asked to reply with a function_call JSON, which is mapped to HA intents.
         """
+        is_ru = (language or "").lower().startswith("ru")
+        default_prompt = (DEFAULT_PROMPT_YANDEXGPT_RU if is_ru
+                          else DEFAULT_PROMPT_YANDEXGPT_EN)
         prompt = template.Template(
-            self.entry.options.get(CONF_PROMPT) or DEFAULT_PROMPT_YANDEXGPT,
+            self.entry.options.get(CONF_PROMPT) or default_prompt,
             self.hass,
         ).async_render(
             {
@@ -211,14 +272,54 @@ class GigaChatAgent(conversation.ConversationEntity):
                     )
                 )
                 return
+            raw = result.content or ""
+            function_data = self._parse_function_call(raw)
+            if function_data is None:
+                if FUNCTION_CALL_MARKER.search(raw):
+                    # The model tried to emit a function call but it was
+                    # malformed (e.g. truncated by max_tokens), so the raw
+                    # JSON must never be shown to the user.
+                    LOGGER.warning("Malformed function call from model: %s", raw)
+                    chat_log.async_add_user_content(
+                        conversation.UserContent(
+                            content=(
+                                "Не удалось распознать команду. Ответь пользователю "
+                                "обычным текстом или корректным JSON."
+                            )
+                        )
+                    )
+                    result_text = result_text or (
+                        "Не удалось распознать команду. Повторите, пожалуйста."
+                    )
+                    continue
+                chat_log.async_add_assistant_content_without_tools(
+                    conversation.AssistantContent(
+                        agent_id=self.entity_id, content=raw
+                    )
+                )
+                return
             chat_log.async_add_assistant_content_without_tools(
                 conversation.AssistantContent(
-                    agent_id=self.entity_id, content=result.content or ""
+                    agent_id=self.entity_id, content=raw
                 )
             )
-            function_data = self._parse_function_call(result.content or "")
-            if function_data is None:
-                return
+
+            function_call = function_data.get("function_call")
+            if (
+                isinstance(function_call, dict)
+                and function_call.get("type") == "location"
+            ):
+                location = await geo.async_resolve_location(
+                    self.hass,
+                    function_call.get("entity_id") or function_call.get("name"),
+                    language,
+                )
+                result_text = geo.format_location_text(location, language)
+                LOGGER.debug("Location result: %s", result_text)
+                chat_log.async_add_user_content(
+                    conversation.UserContent(content=result_text)
+                )
+                continue
 
             intent_type, slots = self._prepare_intent(function_data)
             if intent_type is None:
@@ -251,7 +352,8 @@ class GigaChatAgent(conversation.ConversationEntity):
 
         chat_log.async_add_assistant_content_without_tools(
             conversation.AssistantContent(
-                agent_id=self.entity_id, content=result_text
+                agent_id=self.entity_id,
+                content=result_text or "Извини, не удалось выполнить запрос.",
             )
         )
 
@@ -279,6 +381,9 @@ class GigaChatAgent(conversation.ConversationEntity):
         area = area_registry.async_get_area(area_id) if area_id else None
         area_value = area.name if area else area_id
         location_text = function_call.get("location") or area_value or ""
+        aliases_text = ", ".join(
+            alias for alias in (entity.aliases or []) if isinstance(alias, str)
+        ) or (entity.name or "")
 
         intent_type = None
         slots = {}
@@ -292,7 +397,7 @@ class GigaChatAgent(conversation.ConversationEntity):
                 slots = {
                     "name": {
                         "value": entity.name or entity_id,
-                        "text": ", ".join(entity.aliases or []) or entity.name,
+                        "text": aliases_text,
                     },
                     "area": {"value": area_value, "text": location_text},
                     "domain": {
@@ -300,12 +405,47 @@ class GigaChatAgent(conversation.ConversationEntity):
                         "text": entity_id.partition(".")[0],
                     },
                 }
+        elif function_type == "open_close":
+            action = function_call.get("action")
+            if entity_id.partition(".")[0] == "valve":
+                # Valves have no open/close intents, they are turned on/off
+                intent_type = "HassTurnOn" if action == "open" else "HassTurnOff"
+                slots = {
+                    "name": {
+                        "value": entity.name or entity_id,
+                        "text": aliases_text,
+                    },
+                    "area": {"value": area_value, "text": location_text},
+                    "domain": {"value": "valve", "text": "valve"},
+                }
+            elif action == "open":
+                intent_type = "HassOpenCover"
+            elif action == "close":
+                intent_type = "HassCloseCover"
+            if intent_type in ("HassOpenCover", "HassCloseCover"):
+                slots = {
+                    "name": {
+                        "value": entity.name or entity_id,
+                        "text": aliases_text,
+                    },
+                    "area": {"value": area_value, "text": location_text},
+                }
+        elif function_type == "position":
+            intent_type = "HassSetPosition"
+            slots = {
+                "name": {
+                    "value": entity.name or entity_id,
+                    "text": aliases_text,
+                },
+                "area": {"value": area_value, "text": location_text},
+                "position": {"value": function_call.get("value")},
+            }
         elif function_type == "property":
             intent_type = "HassGetState"
             slots = {
                 "name": {
                     "value": entity.name or entity_id,
-                    "text": ", ".join(entity.aliases or []) or entity.name,
+                    "text": aliases_text,
                 },
                 "area": {"value": area_value, "text": location_text},
             }

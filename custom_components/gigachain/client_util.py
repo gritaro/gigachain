@@ -1,6 +1,5 @@
 import logging
 import warnings
-from typing import Set
 
 from homeassistant.core import HomeAssistant
 from langchain_community.chat_models import ChatAnyscale, ChatYandexGPT
@@ -9,12 +8,25 @@ from langchain_core.messages import SystemMessage
 from langchain_gigachat.chat_models import GigaChat
 from langchain_openai import ChatOpenAI
 
-from .const import (CONF_API_KEY, CONF_CHAT_MODEL, CONF_CHAT_MODEL_USER,
-                    CONF_ENGINE, CONF_FOLDER_ID, CONF_PROFANITY,
-                    CONF_SKIP_VALIDATION, DEFAULT_PROFANITY, ENGINE_MODELS,
-                    ID_GIGACHAT, ID_YANDEX_GPT, ID_OPENAI, ID_ANYSCALE,
-                    DEFAULT_MODEL, MODELS_ANYSCALE, UNIQUE_ID_GIGACHAT,
-                    UNIQUE_ID_OPENAI)
+from .const import (
+    CONF_API_KEY,
+    CONF_CHAT_MODEL,
+    CONF_CHAT_MODEL_USER,
+    CONF_ENGINE,
+    CONF_FOLDER_ID,
+    CONF_PROFANITY,
+    CONF_SKIP_VALIDATION,
+    DEFAULT_MODEL,
+    DEFAULT_PROFANITY,
+    ENGINE_MODELS,
+    ID_ANYSCALE,
+    ID_GIGACHAT,
+    ID_OPENAI,
+    ID_YANDEX_GPT,
+    MODELS_ANYSCALE,
+    UNIQUE_ID_GIGACHAT,
+    UNIQUE_ID_OPENAI,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -100,9 +112,9 @@ def _get_client(engine, entry, common_args):
 class LocalChatAnyscale(ChatAnyscale):
     @staticmethod
     def get_available_models(
-            anyscale_api_key: str = None,
-            anyscale_api_base: str = None,
-    ) -> Set[str]:
+            anyscale_api_key: str | None = None,
+            anyscale_api_base: str | None = None,
+    ) -> set[str]:
         """Get available models from configuration."""
         return MODELS_ANYSCALE
 
@@ -135,7 +147,7 @@ def _fetch_models(unique_id: str, api_key: str, current: str | None) -> list[str
                       if m.startswith(("gpt-", "chatgpt", "o1", "o3", "o4"))]
         else:
             return fallback
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         LOGGER.debug("Cannot fetch models for %s: %s", unique_id, err)
         return fallback
     models = sorted(set(models))

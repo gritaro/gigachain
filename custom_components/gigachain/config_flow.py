@@ -12,25 +12,49 @@ from gigachat.exceptions import ResponseError
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
-from homeassistant.helpers.selector import (NumberSelector,
-                                            NumberSelectorConfig,
-                                            SelectSelectorMode,
-                                            TemplateSelector)
+from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    SelectSelectorMode,
+    TemplateSelector,
+)
 from httpx import ConnectError
 
 from .client_util import get_models, validate_client
-from .const import (CONF_API_KEY, CONF_CHAT_MODEL, CONF_CHAT_MODEL_USER,
-                    CONF_ENGINE, CONF_ENGINE_OPTIONS, CONF_FOLDER_ID,
-                    CONF_LLM_HASS_API, CONF_MAX_TOKENS,
-                    CONF_PROCESS_BUILTIN_SENTENCES, CONF_PROFANITY,
-                    CONF_PROMPT, CONF_SKIP_VALIDATION, CONF_TEMPERATURE,
-                    DEFAULT_CHAT_MODEL, DEFAULT_LLM_HASS_API,
-                    DEFAULT_PROCESS_BUILTIN_SENTENCES, DEFAULT_PROFANITY,
-                    DEFAULT_PROMPT, DEFAULT_PROMPT_YANDEXGPT,
-                    DEFAULT_SKIP_VALIDATION, DEFAULT_TEMPERATURE, DOMAIN,
-                    ID_ANYSCALE, ID_GIGACHAT, ID_OPENAI, ID_YANDEX_GPT,
-                    LLM_API_NONE, UNIQUE_ID, UNIQUE_ID_ANYSCALE,
-                    UNIQUE_ID_GIGACHAT, UNIQUE_ID_YANDEX_GPT)
+from .const import (
+    CONF_API_KEY,
+    CONF_CHAT_MODEL,
+    CONF_CHAT_MODEL_USER,
+    CONF_ENGINE,
+    CONF_ENGINE_OPTIONS,
+    CONF_FOLDER_ID,
+    CONF_LLM_HASS_API,
+    CONF_MAX_TOKENS,
+    CONF_PROCESS_BUILTIN_SENTENCES,
+    CONF_PROFANITY,
+    CONF_PROMPT,
+    CONF_SKIP_VALIDATION,
+    CONF_TEMPERATURE,
+    DEFAULT_CHAT_MODEL,
+    DEFAULT_LLM_HASS_API,
+    DEFAULT_MAX_TOKENS,
+    DEFAULT_PROCESS_BUILTIN_SENTENCES,
+    DEFAULT_PROFANITY,
+    DEFAULT_PROMPT,
+    DEFAULT_PROMPT_YANDEXGPT,
+    DEFAULT_SKIP_VALIDATION,
+    DEFAULT_TEMPERATURE,
+    DOMAIN,
+    ID_ANYSCALE,
+    ID_GIGACHAT,
+    ID_OPENAI,
+    ID_YANDEX_GPT,
+    LLM_API_NONE,
+    UNIQUE_ID,
+    UNIQUE_ID_ANYSCALE,
+    UNIQUE_ID_GIGACHAT,
+    UNIQUE_ID_YANDEX_GPT,
+)
 
 LLM_HASS_API_OPTIONS = [
     selector.SelectOptionDict(value=DEFAULT_LLM_HASS_API, label="Assist"),
@@ -134,7 +158,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         except ResponseError:
             errors["base"] = "invalid_response"
         except Exception as inst:
-            LOGGER.exception("Unexpected exception %s", type(inst))
+            LOGGER.exception("Unexpected exception: %s", type(inst).__name__)
             errors["base"] = "unknown"
         else:
             await self.async_set_unique_id(unique_id)
@@ -228,7 +252,10 @@ def common_config_option_schema(
         vol.Optional(
             CONF_MAX_TOKENS,
             description={
-                "suggested_value": options.get(CONF_MAX_TOKENS)
+                "suggested_value": options.get(
+                    CONF_MAX_TOKENS,
+                    DEFAULT_MAX_TOKENS if unique_id == UNIQUE_ID_YANDEX_GPT else None,
+                )
             },
         ): int,
         vol.Optional(
