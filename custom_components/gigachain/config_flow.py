@@ -18,12 +18,12 @@ from homeassistant.helpers.selector import (NumberSelector,
                                             TemplateSelector)
 from httpx import ConnectError
 
-from .client_util import validate_client
+from .client_util import get_models, validate_client
 from .const import (CONF_API_KEY, CONF_CHAT_MODEL, CONF_CHAT_MODEL_USER,
                     CONF_ENGINE, CONF_ENGINE_OPTIONS, CONF_FOLDER_ID,
                     CONF_MAX_TOKENS, CONF_PROFANITY, CONF_PROMPT,
                     CONF_SKIP_VALIDATION, CONF_TEMPERATURE, DEFAULT_CHAT_MODEL,
-                    ENGINE_MODELS, DEFAULT_PROFANITY, DEFAULT_PROMPT,
+                    DEFAULT_PROFANITY, DEFAULT_PROMPT,
                     DEFAULT_SKIP_VALIDATION, DEFAULT_TEMPERATURE, DOMAIN,
                     ID_GIGACHAT, ID_OPENAI, ID_YANDEX_GPT, UNIQUE_ID,
                     CONF_PROCESS_BUILTIN_SENTENCES, DEFAULT_PROCESS_BUILTIN_SENTENCES,
@@ -144,7 +144,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             config_entry: config_entries.ConfigEntry,
     ) -> config_entries.OptionsFlow:
         """Create the options flow."""
-        return OptionsFlow(config_entry)
+        return OptionsFlow()
 
 
 class OptionsFlow(config_entries.OptionsFlow):
@@ -156,8 +156,9 @@ class OptionsFlow(config_entries.OptionsFlow):
         """Manage the options."""
         errors = {}
         unique_id = self.config_entry.unique_id
+        models = await get_models(self.hass, self.config_entry)
         schema = common_config_option_schema(
-            unique_id, self.config_entry.options
+            unique_id, self.config_entry.options, models
         )
         if user_input is not None:
             errors["base"] = "unsupported"
@@ -183,7 +184,7 @@ class OptionsFlow(config_entries.OptionsFlow):
 
 
 def common_config_option_schema(
-        unique_id: str, options: MappingProxyType[str, Any]
+        unique_id: str, options: MappingProxyType[str, Any], models: list[str]
 ) -> vol.Schema:
     """Return a schema for GigaChain completion options."""
     if not options:
@@ -196,7 +197,7 @@ def common_config_option_schema(
             },
             default="none",
         ): selector.SelectSelector(
-            selector.SelectSelectorConfig(mode=SelectSelectorMode("dropdown"), options=ENGINE_MODELS[unique_id]),
+            selector.SelectSelectorConfig(mode=SelectSelectorMode("dropdown"), options=models),
         ),
         vol.Optional(
             CONF_CHAT_MODEL_USER,
