@@ -10,7 +10,6 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/gritaro/gigachain/issues",
   "requirements": [
-    "home-assistant-intents",
     "langchain-core==1.6.9",
     "langchain-community==0.4.2",
     "langchain-openai==1.7.0",
