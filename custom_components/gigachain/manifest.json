@@ -3,7 +3,7 @@
   "name": "GigaChain",
   "codeowners": ["@gritaro"],
   "config_flow": true,
-  "dependencies": ["conversation"],
+  "dependencies": ["conversation", "llm"],
   "documentation": "https://github.com/gritaro/gigachain",
   "homekit": {},
   "integration_type": "service",
@@ -16,5 +16,5 @@
     "langchain-gigachat==0.5.1",
     "yandexcloud==0.295.0"
   ],
-  "version": "0.2.1"
+  "version": "0.3.0"
 }

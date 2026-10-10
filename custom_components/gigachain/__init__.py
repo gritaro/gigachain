@@ -1,27 +1,25 @@
 """The GigaChain integration."""
 
 import logging
-from typing import Literal
 
-from home_assistant_intents import get_languages
-from homeassistant.components import conversation
-from homeassistant.components.conversation import agent_manager
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import intent, template
-from homeassistant.util import ulid
-from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, AIMessage
 
 from .client_util import get_client
-from .const import (CONF_API_KEY, CONF_CHAT_MODEL, CONF_CHAT_MODEL_USER,
-                    CONF_ENGINE, CONF_FOLDER_ID, CONF_MAX_TOKENS,
-                    CONF_PROFANITY, CONF_PROMPT, CONF_TEMPERATURE,
-                    DEFAULT_CHAT_MODEL, DEFAULT_PROFANITY, DEFAULT_PROMPT,
-                    CONF_PROCESS_BUILTIN_SENTENCES, DEFAULT_PROCESS_BUILTIN_SENTENCES,
-                    CONF_CHAT_HISTORY, DEFAULT_CHAT_HISTORY,
-                    DEFAULT_TEMPERATURE, DOMAIN, ID_GIGACHAT)
+from .const import (
+    CONF_CHAT_MODEL,
+    CONF_CHAT_MODEL_USER,
+    CONF_ENGINE,
+    CONF_MAX_TOKENS,
+    CONF_TEMPERATURE,
+    DEFAULT_TEMPERATURE,
+    ID_GIGACHAT,
+)
 
 LOGGER = logging.getLogger(__name__)
+
+PLATFORMS = [Platform.CONVERSATION]
 
 
 async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -33,7 +31,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Initialize GigaChain."""
     engine = entry.data.get(CONF_ENGINE) or ID_GIGACHAT
     model = entry.options.get(CONF_CHAT_MODEL_USER)
-    if model == " " or model == "" or model is None:
+    if model in (" ", "", None):
         model = entry.options.get(CONF_CHAT_MODEL)
     temperature = entry.options.get(CONF_TEMPERATURE, DEFAULT_TEMPERATURE)
     max_tokens = entry.options.get(CONF_MAX_TOKENS)
@@ -49,94 +47,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if max_tokens is not None:
         common_args["max_tokens"] = max_tokens
 
-    _client = await get_client(hass, engine, entry, common_args)
+    entry.runtime_data = await get_client(hass, engine, entry, common_args)
 
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = _client
-    _agent = GigaChatAI(hass, entry)
-    conversation.async_set_agent(hass, entry, _agent)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload GigaChain."""
-    hass.data[DOMAIN].pop(entry.entry_id)
-    conversation.async_unset_agent(hass, entry)
-    return True
-
-
-class GigaChatAI(conversation.AbstractConversationAgent):
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
-        """Initialize the agent."""
-        self.hass = hass
-        self.entry = entry
-        self.history: dict[str, list[BaseMessage]] = {}
-        self.default_agent = agent_manager.async_get_agent(hass, None)
-
-    @property
-    def supported_languages(self) -> list[str] | Literal["*"]:
-        """Return a list of supported languages."""
-        return get_languages()
-
-    async def async_process(
-            self, user_input: conversation.ConversationInput
-    ) -> conversation.ConversationResult:
-        """Process a sentence."""
-        raw_prompt = self.entry.options.get(CONF_PROMPT, DEFAULT_PROMPT)
-        chat_history_enabled = self.entry.options.get(CONF_CHAT_HISTORY, DEFAULT_CHAT_HISTORY)
-
-        if user_input.conversation_id in self.history and chat_history_enabled:
-            conversation_id = user_input.conversation_id
-            messages = self.history[conversation_id]
-        else:
-            conversation_id = ulid.ulid()
-            prompt = self._async_generate_prompt(raw_prompt)
-            messages = [SystemMessage(content=prompt)]
-
-        messages.append(HumanMessage(content=user_input.text))
-
-        use_builtin_sentences = self.entry.options.get(CONF_PROCESS_BUILTIN_SENTENCES,
-                                                       DEFAULT_PROCESS_BUILTIN_SENTENCES)
-        if use_builtin_sentences:
-            default_agent_response = await self.default_agent.async_process(user_input)
-
-            if default_agent_response.response.intent:
-                messages.append(AIMessage(content=default_agent_response.response.speech.get("plain").get("speech")))
-                self.history[conversation_id] = messages
-                return conversation.ConversationResult(
-                    conversation_id=conversation_id, response=default_agent_response.response
-                )
-
-        _client = self.hass.data[DOMAIN][self.entry.entry_id]
-
-        try:
-            res = await self.hass.async_add_executor_job(_client.invoke, messages)
-        except Exception as err:
-            LOGGER.exception("Unexpected exception %s", type(err))
-            response = intent.IntentResponse(language=user_input.language)
-            response.async_set_error(
-                intent.IntentResponseErrorCode.UNKNOWN,
-                f"Houston we have a problem: {err}",
-            )
-            return conversation.ConversationResult(
-                conversation_id=conversation_id, response=response
-            )
-
-        messages.append(res)
-        self.history[conversation_id] = messages
-        LOGGER.debug(messages)
-
-        response = intent.IntentResponse(language=user_input.language)
-        response.async_set_speech(res.content)
-        LOGGER.debug(response)
-        return conversation.ConversationResult(
-            conversation_id=conversation_id, response=response
-        )
-
-    def _async_generate_prompt(self, raw_prompt: str) -> str:
-        """Generate a prompt for the user."""
-        return template.Template(raw_prompt, self.hass).async_render(
-            {
-                "ha_name": self.hass.config.location_name,
-            },
-            parse_result=False,
-        )
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

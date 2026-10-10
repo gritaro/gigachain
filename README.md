@@ -105,9 +105,22 @@ If enabled, integration first will pass all sentences to [HA built-in sentence p
 This is default behaviour of default Home Assistant Voice Assistant engine which allow you to use commands something like `turn on the living room light`.
 If sentence will not be recognized by HA, it will be passed further to chosen LLM.
 
-- Chat History (chat_history, `bool`)
+- *Home Assistant API* (llm_hass_api, `select`)
 
-Keep all conversation history. 
+Device control via the official Home Assistant [LLM API](https://developers.home-assistant.io/docs/ai/).
+With `Assist` selected the LLM gets access to the same tools as the built-in Assist agent
+(turn on/off devices, get state, set position, timers, etc.) through native function calling.
+Supported for GigaChat, OpenAI and Anyscale. `None` disables device control (plain chat only).
+
+Not available for YandexGPT: it has no native function calling, so device control
+for it works through a legacy prompt-based JSON `function_call` scheme (entities exposed
+to Assist are listed in the prompt). Tune the *Prompt template* for that mode if needed.
+
+> Entities must be exposed to Assist (Settings → Devices & services → Exposations)
+> to be controllable by the LLM.
+
+Chat history is now handled by Home Assistant itself (per conversation), the old
+`chat_history` option was removed.
 
 ## Using as Voice Assistant
 

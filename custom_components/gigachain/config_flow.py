@@ -21,14 +21,21 @@ from httpx import ConnectError
 from .client_util import get_models, validate_client
 from .const import (CONF_API_KEY, CONF_CHAT_MODEL, CONF_CHAT_MODEL_USER,
                     CONF_ENGINE, CONF_ENGINE_OPTIONS, CONF_FOLDER_ID,
-                    CONF_MAX_TOKENS, CONF_PROFANITY, CONF_PROMPT,
-                    CONF_SKIP_VALIDATION, CONF_TEMPERATURE, DEFAULT_CHAT_MODEL,
-                    DEFAULT_PROFANITY, DEFAULT_PROMPT,
+                    CONF_LLM_HASS_API, CONF_MAX_TOKENS,
+                    CONF_PROCESS_BUILTIN_SENTENCES, CONF_PROFANITY,
+                    CONF_PROMPT, CONF_SKIP_VALIDATION, CONF_TEMPERATURE,
+                    DEFAULT_CHAT_MODEL, DEFAULT_LLM_HASS_API,
+                    DEFAULT_PROCESS_BUILTIN_SENTENCES, DEFAULT_PROFANITY,
+                    DEFAULT_PROMPT, DEFAULT_PROMPT_YANDEXGPT,
                     DEFAULT_SKIP_VALIDATION, DEFAULT_TEMPERATURE, DOMAIN,
-                    ID_GIGACHAT, ID_OPENAI, ID_YANDEX_GPT, UNIQUE_ID,
-                    CONF_PROCESS_BUILTIN_SENTENCES, DEFAULT_PROCESS_BUILTIN_SENTENCES,
-                    CONF_CHAT_HISTORY, DEFAULT_CHAT_HISTORY,
-                    UNIQUE_ID_GIGACHAT, UNIQUE_ID_ANYSCALE, ID_ANYSCALE)
+                    ID_ANYSCALE, ID_GIGACHAT, ID_OPENAI, ID_YANDEX_GPT,
+                    LLM_API_NONE, UNIQUE_ID, UNIQUE_ID_ANYSCALE,
+                    UNIQUE_ID_GIGACHAT, UNIQUE_ID_YANDEX_GPT)
+
+LLM_HASS_API_OPTIONS = [
+    selector.SelectOptionDict(value=DEFAULT_LLM_HASS_API, label="Assist"),
+    selector.SelectOptionDict(value=LLM_API_NONE, label="None"),
+]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -66,7 +73,6 @@ ENGINE_SCHEMA = {
 
 DEFAULT_OPTIONS = types.MappingProxyType(
     {
-        CONF_PROMPT: DEFAULT_PROMPT,
         CONF_CHAT_MODEL: DEFAULT_CHAT_MODEL,
         CONF_CHAT_MODEL_USER: DEFAULT_CHAT_MODEL,
         CONF_PROCESS_BUILTIN_SENTENCES: DEFAULT_PROCESS_BUILTIN_SENTENCES,
@@ -189,6 +195,8 @@ def common_config_option_schema(
     """Return a schema for GigaChain completion options."""
     if not options:
         options = DEFAULT_OPTIONS
+    default_prompt = (DEFAULT_PROMPT_YANDEXGPT if unique_id == UNIQUE_ID_YANDEX_GPT
+                      else DEFAULT_PROMPT)
     schema = vol.Schema({
         vol.Optional(
             CONF_CHAT_MODEL,
@@ -207,8 +215,8 @@ def common_config_option_schema(
         ): str,
         vol.Optional(
             CONF_PROMPT,
-            description={"suggested_value": options[CONF_PROMPT]},
-            default=DEFAULT_PROMPT,
+            description={"suggested_value": options.get(CONF_PROMPT, default_prompt)},
+            default=default_prompt,
         ): TemplateSelector(),
         vol.Optional(
             CONF_TEMPERATURE,
@@ -229,13 +237,21 @@ def common_config_option_schema(
                 "suggested_value": options.get(CONF_PROCESS_BUILTIN_SENTENCES, DEFAULT_PROCESS_BUILTIN_SENTENCES)
             },
             default=DEFAULT_PROCESS_BUILTIN_SENTENCES): bool,
-        vol.Optional(
-            CONF_CHAT_HISTORY,
-            description={
-                "suggested_value": options.get(CONF_CHAT_HISTORY, DEFAULT_CHAT_HISTORY)
-            },
-            default=DEFAULT_CHAT_HISTORY): bool
     })
+    if unique_id != UNIQUE_ID_YANDEX_GPT:
+        schema = schema.extend(
+            {
+                vol.Optional(
+                    CONF_LLM_HASS_API,
+                    description={
+                        "suggested_value": options.get(CONF_LLM_HASS_API, DEFAULT_LLM_HASS_API)
+                    },
+                    default=DEFAULT_LLM_HASS_API,
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(options=LLM_HASS_API_OPTIONS),
+                ),
+            }
+        )
     if unique_id == UNIQUE_ID_GIGACHAT:
         schema = schema.extend(
             {
