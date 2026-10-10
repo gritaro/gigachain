@@ -10,7 +10,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import intent, template
 from homeassistant.util import ulid
-from langchain.schema import BaseMessage, HumanMessage, SystemMessage, AIMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, AIMessage
 
 from .client_util import get_client
 from .const import (CONF_API_KEY, CONF_CHAT_MODEL, CONF_CHAT_MODEL_USER,
@@ -109,7 +109,7 @@ class GigaChatAI(conversation.AbstractConversationAgent):
         _client = self.hass.data[DOMAIN][self.entry.entry_id]
 
         try:
-            res = _client.invoke(messages)
+            res = await self.hass.async_add_executor_job(_client.invoke, messages)
         except Exception as err:
             LOGGER.exception("Unexpected exception %s", type(err))
             response = intent.IntentResponse(language=user_input.language)

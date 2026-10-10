@@ -1,15 +1,28 @@
 import logging
+import warnings
 from typing import Set
 
 from homeassistant.core import HomeAssistant
-from langchain.schema import SystemMessage
-from langchain_community.chat_models import ChatOpenAI, ChatYandexGPT, GigaChat, ChatAnyscale
+from langchain_community.chat_models import ChatAnyscale, ChatYandexGPT
+from langchain_core._api.deprecation import LangChainDeprecationWarning
+from langchain_core.messages import SystemMessage
+from langchain_gigachat.chat_models import GigaChat
+from langchain_openai import ChatOpenAI
 
-from .const import (CONF_API_KEY, CONF_ENGINE, CONF_FOLDER_ID, CONF_PROFANITY,
-                    CONF_SKIP_VALIDATION, DEFAULT_PROFANITY, ID_GIGACHAT,
-                    ID_YANDEX_GPT, ID_OPENAI, ID_ANYSCALE, DEFAULT_MODEL, MODELS_ANYSCALE)
+from .const import (CONF_API_KEY, CONF_CHAT_MODEL, CONF_CHAT_MODEL_USER,
+                    CONF_ENGINE, CONF_FOLDER_ID, CONF_PROFANITY,
+                    CONF_SKIP_VALIDATION, DEFAULT_PROFANITY, ENGINE_MODELS,
+                    ID_GIGACHAT, ID_YANDEX_GPT, ID_OPENAI, ID_ANYSCALE,
+                    DEFAULT_MODEL, MODELS_ANYSCALE, UNIQUE_ID_GIGACHAT,
+                    UNIQUE_ID_OPENAI)
 
 LOGGER = logging.getLogger(__name__)
+
+warnings.filterwarnings(
+    "ignore",
+    category=LangChainDeprecationWarning,
+    message=r".*ChatOpenAI.*",
+)
 
 
 async def validate_client(
@@ -18,6 +31,10 @@ async def validate_client(
 ) -> None:
     if user_input.get(CONF_SKIP_VALIDATION):
         return
+    await hass.async_add_executor_job(_validate_client, user_input)
+
+
+def _validate_client(user_input) -> None:
     engine = user_input.get(CONF_ENGINE) or ID_GIGACHAT
     if engine == ID_GIGACHAT:
         credentials = user_input[CONF_API_KEY]
@@ -53,6 +70,10 @@ async def validate_client(
 
 
 async def get_client(hass: HomeAssistant, engine, entry, common_args):
+    return await hass.async_add_executor_job(_get_client, engine, entry, common_args)
+
+
+def _get_client(engine, entry, common_args):
     if engine == ID_GIGACHAT:
         common_args["credentials"] = entry.data[CONF_API_KEY]
         common_args["verify_ssl_certs"] = False
@@ -84,3 +105,40 @@ class LocalChatAnyscale(ChatAnyscale):
     ) -> Set[str]:
         """Get available models from configuration."""
         return MODELS_ANYSCALE
+
+
+async def get_models(hass: HomeAssistant, entry) -> list[str]:
+    """Fetch model list from the engine API, fall back to the static list."""
+    unique_id = entry.unique_id
+    if unique_id not in (UNIQUE_ID_GIGACHAT, UNIQUE_ID_OPENAI):
+        return list(ENGINE_MODELS.get(unique_id, []))
+    api_key = entry.data.get(CONF_API_KEY)
+    current = (entry.options.get(CONF_CHAT_MODEL_USER)
+               or entry.options.get(CONF_CHAT_MODEL))
+    return await hass.async_add_executor_job(_fetch_models, unique_id, api_key, current)
+
+
+def _fetch_models(unique_id: str, api_key: str, current: str | None) -> list[str]:
+    fallback = list(ENGINE_MODELS.get(unique_id, []))
+    try:
+        if unique_id == UNIQUE_ID_GIGACHAT:
+            from gigachat import GigaChat
+            client = GigaChat(credentials=api_key, verify_ssl_certs=False, timeout=10)
+            ids = [m.id for m in client.get_models().data or []]
+            models = [m for m in ids
+                      if not m.lower().startswith(("embeddings", "gigaembeddings"))]
+        elif unique_id == UNIQUE_ID_OPENAI:
+            import openai
+            client = openai.OpenAI(api_key=api_key, timeout=10, max_retries=1)
+            ids = [m.id for m in client.models.list().data]
+            models = [m for m in ids
+                      if m.startswith(("gpt-", "chatgpt", "o1", "o3", "o4"))]
+        else:
+            return fallback
+    except Exception as err:
+        LOGGER.debug("Cannot fetch models for %s: %s", unique_id, err)
+        return fallback
+    models = sorted(set(models))
+    if current and current != " " and current not in models:
+        models.insert(0, current)
+    return [" "] + models
