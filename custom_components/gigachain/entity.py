@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-from dataclasses import replace
 from typing import Literal
 
 from home_assistant_intents import get_languages
@@ -58,13 +57,13 @@ class GigaChatAgent(conversation.ConversationEntity):
     """GigaChain conversation agent."""
 
     _attr_has_entity_name = True
-    _attr_name = None
     _attr_supported_features = conversation.ConversationEntityFeature.CONTROL
 
     def __init__(self, entry: ConfigEntry) -> None:
         """Initialize the agent."""
         self.entry = entry
         self._attr_unique_id = entry.entry_id
+        self._attr_name = entry.title
 
     @property
     def supported_languages(self) -> list[str] | Literal["*"]:
@@ -95,20 +94,22 @@ class GigaChatAgent(conversation.ConversationEntity):
         )
         if use_builtin_sentences:
             default_agent = agent_manager.async_get_agent(self.hass, None)
-            # Probe the built-in agent on a throwaway conversation id. Calling
-            # it with our own id would make it append its messages (including
-            # the "not understood" speech) to our ChatLog, corrupting the LLM
-            # history we later send back to the model.
-            builtin_input = replace(
-                user_input,
-                conversation_id=f"{chat_log.conversation_id}:builtin",
+            # Probe the built-in agent against our own chat_log so that, when
+            # it recognises the sentence, its messages (tool call, tool result
+            # and speech) end up in the ChatLog we persist and stay visible to
+            # the model on the next turn. When it does not recognise the
+            # sentence we roll back whatever it appended (e.g. the "not
+            # understood" speech) before consulting the LLM.
+            content_snapshot = len(chat_log.content)
+            default_agent_response = await default_agent._async_handle_message(
+                user_input, chat_log
             )
-            default_agent_response = await default_agent.async_process(builtin_input)
             if default_agent_response.response.intent:
                 return conversation.ConversationResult(
                     conversation_id=chat_log.conversation_id,
                     response=default_agent_response.response,
                 )
+            del chat_log.content[content_snapshot:]
 
         try:
             await chat_log.async_provide_llm_data(
