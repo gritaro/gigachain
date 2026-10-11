@@ -51,13 +51,83 @@ def location_tool_to_langchain() -> dict[str, Any]:
     }
 
 
+NUMERIC_CONSTRAINTS = (
+    "minimum",
+    "maximum",
+    "exclusiveMinimum",
+    "exclusiveMaximum",
+    "multipleOf",
+)
+
+
+def _infer_primitive_type(values: list[Any]) -> str | None:
+    """Infer a single JSON-schema type from enum values, or ``None``."""
+    kinds: set[str] = set()
+    for value in values:
+        if isinstance(value, bool):
+            kinds.add("boolean")
+        elif isinstance(value, int):
+            kinds.add("integer")
+        elif isinstance(value, float):
+            kinds.add("number")
+        elif isinstance(value, str):
+            kinds.add("string")
+        else:
+            return None
+    if len(kinds) == 1:
+        return kinds.pop()
+    return None
+
+
+def _fix_numeric_enum(node: dict[str, Any]) -> None:
+    """Align an ``enum`` with the declared numeric type.
+
+    GigaChat rejects an enum whose values do not match the property type (for
+    example a ``type: integer`` with string values). Values that can be coerced
+    are converted, the rest are dropped; an empty enum is removed.
+    """
+    node_type = node.get("type")
+    values = node.get("enum")
+    if not isinstance(values, list):
+        return
+    if node_type == "integer":
+        caster: type = int
+    elif node_type == "number":
+        caster = float
+    else:
+        return
+    coerced: list[Any] = []
+    for value in values:
+        try:
+            coerced.append(caster(value))
+        except (TypeError, ValueError):
+            continue
+    if coerced:
+        node["enum"] = coerced
+    else:
+        node.pop("enum", None)
+
+
 def _sanitize_schema(node: Any) -> Any:
     """Normalize a JSON schema for GigaChat function calling.
 
-    GigaChat does not support array types, ``anyOf`` or schemas without an
-    explicit object/dict type, so arrays are flattened to their item schema
-    (HA intent slots accept single values thanks to EnsureList), anyOf is
-    merged and empty or bare-string schemas become ``{"type": "string"}``.
+    GigaChat does not support array types, ``anyOf``/``oneOf`` unions or
+    schemas without an explicit object/dict type, so arrays are flattened to
+    their item schema (HA intent slots accept single values thanks to
+    EnsureList), unions are collapsed and empty or bare-string schemas become
+    ``{"type": "string"}``.
+
+    A union whose members share one type is merged into a single schema. A
+    union of different types (for example ``str | int``) cannot be expressed,
+    so it degrades to a plain ``string`` and the constraints of the other
+    branches are dropped: HA validators coerce strings back to their target
+    type, so both ``"up"``/``"down"`` and ``"5"`` keep working.
+
+    Every property must end up with an explicit primitive ``type``. GigaChat
+    treats a property that only carries a ``description`` (as probatio emits
+    for ``cv.boolean`` slots such as ``is_volume_muted``) as an object and
+    rejects the whole request with a 422, so such nodes are given a type
+    inferred from their ``enum`` or default to ``string``.
     """
     if isinstance(node, str):
         return {"type": node}
@@ -67,12 +137,22 @@ def _sanitize_schema(node: Any) -> Any:
         return {"type": "string"}
     if node.get("type") == "array":
         return _sanitize_schema(node.get("items") or {})
-    if "anyOf" in node:
-        merged: dict[str, Any] = {}
-        for option in node.pop("anyOf"):
-            if isinstance(option, dict):
-                merged.update(_sanitize_schema(option))
-        node = {**node, **merged}
+    union = node.get("anyOf") or node.get("oneOf")
+    if union is not None:
+        rest = {k: v for k, v in node.items() if k not in ("anyOf", "oneOf")}
+        options = [
+            _sanitize_schema(option) for option in union if isinstance(option, dict)
+        ]
+        types = {option.get("type") for option in options}
+        if len(types) == 1 and None not in types:
+            merged = rest
+            for option in options:
+                merged.update(option)
+            node = merged
+        else:
+            node = {**rest, "type": "string"}
+            for key in ("enum", *NUMERIC_CONSTRAINTS):
+                node.pop(key, None)
         if node.get("type") == "array":
             return _sanitize_schema(node.get("items") or {})
     result: dict[str, Any] = {}
@@ -85,6 +165,17 @@ def _sanitize_schema(node: Any) -> Any:
             result[key] = _sanitize_schema(value)
         else:
             result[key] = value
+    if "type" not in result:
+        enum = result.get("enum")
+        inferred = _infer_primitive_type(enum) if isinstance(enum, list) and enum else None
+        if inferred is not None:
+            result["type"] = inferred
+        else:
+            result["type"] = "string"
+            result.pop("enum", None)
+    if result.get("type") == "object" and not isinstance(result.get("properties"), dict):
+        result["properties"] = {}
+    _fix_numeric_enum(result)
     return result
 
 
@@ -100,6 +191,8 @@ def hass_tools_to_langchain(llm_api: llm.APIInstance) -> list[dict[str, Any]]:
         for key in ("oneOf", "anyOf", "allOf", "not"):
             schema.pop(key, None)
         schema = _sanitize_schema(schema)
+        if isinstance(schema, dict):
+            schema.setdefault("type", "object")
         LOGGER.debug("Tool %s schema: %s", tool.name, json.dumps(schema, ensure_ascii=False))
         tools.append(
             {
@@ -144,6 +237,7 @@ def chat_log_to_langchain(content: list[conversation.Content]) -> list[BaseMessa
                 ToolMessage(
                     content=json.dumps(item.result.data, ensure_ascii=False),
                     tool_call_id=item.tool_call_id,
+                    name=item.tool_name,
                 )
             )
     return messages

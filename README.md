@@ -83,8 +83,8 @@ Not supported anymore.
 - *Prompt template* (template, Home Assistant `template``)`
 
 The starting text for the AI language model to generate new text from. 
-This text can include information about your Home Assistant instance, devices, and areas and is written using [Home Assistant Templating](https://www.home-assistant.io/docs/configuration/templating/).
-Default value comes from official integration [OpenAI Conversation](https://github.com/home-assistant/core/blob/dev/homeassistant/components/openai_conversation/const.py#L5)
+This text can include information about your Home Assistant instance, devices, and areas and is written using [Home Assistant Templating](https://www.home-assistant.io/docs/configuration/templating/) (e.g. `{{ ha_name }}` is your home name).
+If left empty, one of the built-in default prompts is used (see [Default prompts](#default-prompts) below).
 
 - *Model* (model, `string`)
 
@@ -119,6 +119,36 @@ to Assist are listed in the prompt). Tune the *Prompt template* for that mode if
 > Entities must be exposed to Assist (Settings → Devices & services → Exposations)
 > to be controllable by the LLM.
 
+### Default prompts
+
+If the *Prompt template* field is empty, a built-in prompt is used.
+For GigaChat / OpenAI / Anyscale it is (EN):
+
+```text
+You are a voice assistant for the smart home '{{ ha_name }}' run by Home Assistant.
+Reply briefly and friendly, in the user's language.
+If the user asks to control devices or learn their state - use the available tools.
+Use the conversation context: if the latest phrase does not name a device or area but one was mentioned earlier, act on it instead of asking again (when the choice is unambiguous).
+```
+
+The Russian variant:
+
+```text
+Ты голосовой помощник умного дома «{{ ha_name }}» под управлением Home Assistant.
+Отвечай кратко и дружелюбно на языке пользователя.
+Если пользователь просит что-то сделать с устройствами дома или узнать их состояние — используй доступные инструменты.
+Учитывай контекст диалога: если в последней фразе устройство или помещение не названы, но упоминались раньше, выполняй действие с ними, а не переспрашивай (когда выбор однозначен).
+```
+
+YandexGPT has a different default prompt: it lists the exposed entities and describes the
+legacy JSON `function_call` scheme (full text is in `const.py`).
+
+> **Users with a custom prompt.** The dialogue-context line (“Use the conversation
+> context…”) was added to the default prompts in **0.3.1**. If you set your own *Prompt
+> template*, it is **not added automatically** — add it manually or clear the field to
+> fall back to the default prompt. Without it, follow-ups like "turn it off" after
+> "turn on the kitchen light" work less reliably.
+
 ### Location questions
 
 Questions like "Where is my phone?", "Where is Roman?", "Is the phone at home?" are
@@ -143,6 +173,11 @@ Chat history is now handled by Home Assistant itself (per conversation), the old
 ## Using as Voice Assistant
 
 Create and configure Voice Assistant:
+
+In the **Conversation agent** field pick the GigaChain agent you need. Starting with
+**0.3.1** agents are named after the config entry title — `GigaChat`, `YandexGPT`,
+`OpenAI`, `Anyscale` — so they are easy to tell apart (previously they all showed as
+"GigaChain"). Restart Home Assistant after updating so the names refresh.
 
 ## Known Limitations
 
