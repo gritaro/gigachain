@@ -10,11 +10,9 @@
 [![HACS Action](https://github.com/gritaro/gigachain/actions/workflows/hacs.yaml/badge.svg)](https://github.com/gritaro/gigachain/actions/workflows/hacs.yaml)
 [![Validate with hassfest](https://github.com/gritaro/gigachain/actions/workflows/hassfest.yaml/badge.svg)](https://github.com/gritaro/gigachain/actions/workflows/hassfest.yaml)
 [![Generic badge](https://img.shields.io/github/v/release/gritaro/gigachain)](https://github.com/gritaro/gigachain)
-[![Downloads for latest release](https://img.shields.io/github/downloads/gritaro/gigachain/latest/total)](https://github.com/gritaro/gigachain/releases/latest)
-[![Github All Releases](https://img.shields.io/github/downloads/gritaro/gigachain/total)](https://github.com/gritaro/gigachain/releases)
 
 Компонент реализует диалоговую систему Home Assistant для использования с языковыми моделями, поддерживаемыми фреймворком GigaChain.
-В настоящее время поддерживаются интеграции с LMM:
+В настоящее время поддерживаются интеграции с LLM:
 
 - [GigaChat](#GigaChat) ([русскоязычная (но не только) нейросеть от Сбера](https://developers.sber.ru/docs/ru/gigachat/overview))
 - [YandexGPT](#YandexGPT)
@@ -27,25 +25,28 @@
 
 ### Необходимые требования
 
-Для использования интеграции вам понадобится Home Assistant с установленным [HACS](https://hacs.xyz/)
+Для использования интеграции вам понадобится Home Assistant с установленным [HACS](https://hacs.xyz/).
+
+Для [MCP-инструментов](#MCP-инструменты) требуется Home Assistant **2025.2 или новее**.
+Интеграция разрабатывается и проверяется на актуальных версиях HA (2026.x).
 
 ### Установка с использованием HACS
 
 Найдите GigaChain в магазине HACS. Если интеграция не находится в магазине HACS, вы можете [добавить этот url как пользовательский репозиторий HACS](https://hacs.xyz/docs/faq/custom_repositories).
 
-[hacs_badge](https://github.com/gritaro/gigachain)
-
 Перезапустите Home Assistant.
 
 ## Добавление интеграции
 
-[Open your Home Assistant instance and start setting up a new integration of a specific brand.](https://my.home-assistant.io/redirect/brand/?brand=+GigaChain)
+[Открыть Home Assistant и начать настройку интеграции GigaChain.](https://my.home-assistant.io/redirect/brand/?brand=gigachain)
 
 После добавления настройте интеграцию.
 
 ## Настройки
 
 ### GigaChat
+
+Русскоязычная (но не только) нейросеть от Сбера: официальный API, нативный function calling.
 
 ### Авторизация запросов к GigaChat
 
@@ -61,13 +62,13 @@
 
 ### YandexGPT
 
-[Быстрый старт](https://cloud.yandex.ru/ru/docs/yandexgpt/quickstart)
+[Быстрый старт](https://yandex.cloud/ru/docs/yandexgpt/quickstart)
 
-Создайте [сервисный аккаунт](https://cloud.yandex.com/ru/docs/iam/operations/sa/create) с ролью `ai.languageModels.user`.
+Создайте [сервисный аккаунт](https://yandex.cloud/ru/docs/iam/operations/sa/create) с ролью `ai.languageModels.user`.
 Для создания аккаунта потребуется привязка карты. С карты будет снята и возвращена символическая сумма (11 RUB).
 
-Создайте [API ключ](https://cloud.yandex.com/ru/docs/iam/operations/api-key/create).
-Идентификатор каталога (Folder ID) можно узнать пройдя по [ссылке](https://console.cloud.yandex.com/folders).
+Создайте [API ключ](https://yandex.cloud/ru/docs/iam/operations/api-key/create).
+Идентификатор каталога (Folder ID) можно узнать пройдя по [ссылке](https://console.yandex.cloud/folders).
 
 ### OpenAI
 
@@ -78,6 +79,9 @@
 ~~[Зарегистрируйтесь](https://app.endpoints.anyscale.com/welcome)~~ ~~и создайте API ключ~~ ~~[здесь](https://app.endpoints.anyscale.com/credentials)~~ На данный момент не поддерживается.
 
 ## Конфигурация
+
+Историю сообщений ведёт сам Home Assistant (по conversation_id), отдельная настройка
+не нужна: старая опция `chat_history` удалена.
 
 - *Темплейт промпта* (template, Home Assistant `template``)`
 
@@ -110,9 +114,13 @@
 - *Home Assistant API* (llm_hass_api, `select`)
 
 Управление устройствами дома через официальный [LLM API](https://developers.home-assistant.io/docs/ai/) Home Assistant.
-При выборе `Assist` модель получает те же инструменты, что и встроенный агент Assist
+При выборе `Assist` (в интерфейсе — `Device control`) модель получает те же инструменты,
+что и встроенный агент Assist
 (включение/выключение устройств, запрос состояния, установка позиции, таймеры и т.д.) через нативный function calling.
 Поддерживается для GigaChat, OpenAI и Anyscale. `None` отключает управление домом (обычный чат).
+
+Поле допускает выбор нескольких API сразу — например, `Device control` (Assist) вместе
+с серверами [MCP-инструментов](#mcp-инструменты).
 
 Недоступно для YandexGPT: у него нет нативного function calling, поэтому управление для него
 работает через legacy-схему с JSON `function_call` в промпте (в промпт выводятся сущности,
@@ -131,6 +139,9 @@ exposed для Assist). При необходимости настройте *Т
 Отвечай кратко и дружелюбно на языке пользователя.
 Если пользователь просит что-то сделать с устройствами дома или узнать их состояние — используй доступные инструменты.
 Учитывай контекст диалога: если в последней фразе устройство или помещение не названы, но упоминались раньше, выполняй действие с ними, а не переспрашивай (когда выбор однозначен).
+Помимо управления домом, используй доступные инструменты внешних сервисов (MCP), если вопрос относится к их данным. Не отвечай на такие вопросы из общих знаний.
+Если внешний сервис предоставляет инструмент `ask` для естественно-языковых запросов, используй его для полного вопроса пользователя. Передавай параметры строго по схеме инструмента и не выдумывай данные.
+Сегодня {{ now().strftime("%Y-%m-%d") }}. Для «сегодня/вчера/завтра» передавай дату в формате YYYY-MM-DD.
 ```
 
 То же (EN):
@@ -140,16 +151,46 @@ You are a voice assistant for the smart home '{{ ha_name }}' run by Home Assista
 Reply briefly and friendly, in the user's language.
 If the user asks to control devices or learn their state - use the available tools.
 Use the conversation context: if the latest phrase does not name a device or area but one was mentioned earlier, act on it instead of asking again (when the choice is unambiguous).
+ Besides home devices, use available tools from external services (MCP) when the question concerns their data. Do not answer such questions from general knowledge.
+ If an external service provides an `ask` tool for natural-language queries, use it with the user's complete question. Pass arguments exactly according to the tool schema and do not invent data.
+ Today is {{ now().strftime("%Y-%m-%d") }}. For "today/yesterday/tomorrow", pass the date as YYYY-MM-DD.
 ```
 
 Для YandexGPT промпт по умолчанию другой: он перечисляет exposed-сущности и описывает
 legacy-схему с JSON `function_call` (полный текст — в `const.py`).
 
-> **Пользователям с собственным промптом.** Строка про контекст диалога («Учитывай контекст
-> диалога…» / “Use the conversation context…”) добавлена в промпты по умолчанию начиная с
-> **0.3.1**. Если вы задали свой *Темплейт промпта*, она **не подставится автоматически** —
-> добавьте её вручную или очистите поле, чтобы вернуться к стандартному промпту. Без этой
-> строки продолжения вида «выключи» после «включи свет в кухне» работают хуже.
+> **Пользователям с собственным промптом.** Строки про контекст диалога (0.3.1) и про
+> инструменты внешних сервисов (0.4.0) добавлены в промпты по умолчанию. Если вы задали
+> свой *Темплейт промпта*, они **не подставятся автоматически** — допишите их вручную или
+> очистите поле, чтобы вернуться к стандартному промпту. Без них продолжения вида
+> «выключи» и вопросы к внешним сервисам (например, к MCP-серверам) работают хуже.
+
+### MCP-инструменты
+
+Интеграция может отдавать модели инструменты внешних MCP-серверов ([Model Context
+Protocol](https://modelcontextprotocol.io)). Сам MCP-клиент встроен в Home Assistant
+(с 2025.2), от интеграции GigaChain ничего дополнительно устанавливать не нужно:
+
+1. Добавьте в Home Assistant интеграцию **Model Context Protocol Client**
+   (Настройки → Устройства и службы → Добавить интеграцию → Model Context Protocol
+   Client) и укажите URL MCP-сервера (Streamable HTTP или SSE, например
+   `http://192.168.1.50:8000/mcp`). Для серверов с OAuth понадобятся Client ID/Secret
+   (сохраняются в Application Credentials).
+2. В настройках записи GigaChain (например, *GigaChat → Настроить*) в поле
+   **Home Assistant API** отметьте нужные серверы — можно вместе с `Device control`
+   (Assist), тогда модель сможет и управлять домом, и пользоваться MCP-инструментами.
+3. Инструменты сервера появятся у модели автоматически; список обновляется каждые
+   30 минут.
+
+Замечания:
+
+- Локальные серверы в режиме stdio HA сам не запускает — опубликуйте их по HTTP через
+  прокси (например, [mcp-proxy](https://github.com/sparfenyuk/mcp-proxy)).
+- Поддерживаются только инструменты (tools); MCP prompts, resources и sampling не
+  используются.
+- Только GigaChat / OpenAI / Anyscale: нужен нативный function calling, YandexGPT — нет.
+- Схемы MCP-инструментов прогоняются через тот же санитайзер, что и схемы Assist,
+  поэтому остаются совместимыми со строгой валидацией GigaChat.
 
 ### Вопросы о местоположении
 
@@ -169,17 +210,16 @@ legacy-схему с JSON `function_call` (полный текст — в `const
 > предоставляет, а внешний геокодер не добавляется намеренно. Вне зон сообщается только
 > расстояние до дома.
 
-Историю сообщений теперь ведёт сам Home Assistant (по conversation_id), старая опция
-`chat_history` удалена.
-
 ## Использование в качестве диалоговой системы
 
 Создайте и настройте новый голосовой ассистент:
 
-В поле **Диалоговая система** выберите нужный агент GigaChain. Начиная с **0.3.1** агенты
-называются по заголовку записи интеграции — `GigaChat`, `YandexGPT`, `OpenAI`, `Anyscale`,
-поэтому их легко различить (раньше все отображались одинаково как «GigaChain»). После
-обновления перезапустите Home Assistant, чтобы имена обновились.
+1. Настройки → Голосовые ассистенты → Помощники → **Добавить помощник**.
+2. Задайте имя и язык, в поле **Диалоговая система** выберите агента GigaChain.
+
+Агенты называются по заголовку записи интеграции — `GigaChat`, `YandexGPT`, `OpenAI`,
+`Anyscale` (начиная с **0.3.1**; раньше все отображались одинаково как «GigaChain»).
+После обновления перезапустите Home Assistant, чтобы имена обновились.
 
 ## Известные ограничения
 
@@ -198,4 +238,3 @@ legacy-схему с JSON `function_call` (полный текст — в `const
   но может быть менее связным, чем у нативных движков.
 - **Встроенные фразы.** При включённой опции *Обрабатывать встроенные фразы* типовые
   команды обрабатывает встроенный агент HA ещё до обращения к модели.
-

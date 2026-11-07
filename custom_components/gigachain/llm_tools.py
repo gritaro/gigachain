@@ -17,9 +17,27 @@ from langchain_core.messages import (
     ToolMessage,
 )
 
+from .const import LLM_API_NONE
+
+# JSON Schema ``format`` values GigaChat accepts; anything else (e.g. the
+# probatio normalization hints "strip"/"lower" leaked into the Home Assistant
+# API tool schemas) must be dropped or the whole request is rejected with 422.
+GIGACHAT_FORMATS = {"date", "date-time", "time"}
+
 LOGGER = logging.getLogger(__name__)
 
 LOCATION_TOOL_NAME = "GetLocation"
+
+
+def normalize_llm_apis(value: str | list[str] | None) -> list[str]:
+    """Normalize the ``llm_hass_api`` option to a list of HA LLM API ids.
+
+    Older versions stored a single string, the multi-select stores a list.
+    The special ``none`` value (plain chat, no tools) is dropped.
+    """
+    if isinstance(value, str):
+        value = [value]
+    return [api for api in (value or ()) if api != LLM_API_NONE]
 
 
 def location_tool_to_langchain() -> dict[str, Any]:
@@ -128,6 +146,13 @@ def _sanitize_schema(node: Any) -> Any:
     for ``cv.boolean`` slots such as ``is_volume_muted``) as an object and
     rejects the whole request with a 422, so such nodes are given a type
     inferred from their ``enum`` or default to ``string``.
+
+    A ``format`` attribute is kept only for the values GigaChat accepts
+    (``date``/``date-time``/``time``); probatio leaks normalization hints such
+    as ``strip``/``lower`` into the Home Assistant API tool schemas, and
+    GigaChat rejects the entire request when it sees them. The transforms are
+    HA-side validation details, so dropping the attribute is lossless for the
+    model.
     """
     if isinstance(node, str):
         return {"type": node}
@@ -157,6 +182,8 @@ def _sanitize_schema(node: Any) -> Any:
             return _sanitize_schema(node.get("items") or {})
     result: dict[str, Any] = {}
     for key, value in node.items():
+        if key == "format" and value not in GIGACHAT_FORMATS:
+            continue
         if key == "properties" and isinstance(value, dict):
             result["properties"] = {
                 name: _sanitize_schema(sub) for name, sub in value.items()

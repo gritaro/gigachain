@@ -43,7 +43,6 @@ from .const import (
     DOMAIN,
     ID_GIGACHAT,
     ID_YANDEX_GPT,
-    LLM_API_NONE,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -87,7 +86,7 @@ class GigaChatAgent(conversation.ConversationEntity):
     ) -> conversation.ConversationResult:
         """Process a message."""
         engine = self.entry.data.get(CONF_ENGINE) or ID_GIGACHAT
-        llm_api_id = self._async_get_llm_api_id()
+        llm_api_ids = self._async_get_llm_api_ids()
 
         use_builtin_sentences = self.entry.options.get(
             CONF_PROCESS_BUILTIN_SENTENCES, DEFAULT_PROCESS_BUILTIN_SENTENCES
@@ -114,7 +113,7 @@ class GigaChatAgent(conversation.ConversationEntity):
         try:
             await chat_log.async_provide_llm_data(
                 user_input.as_llm_context(DOMAIN),
-                llm_api_id,
+                llm_api_ids,
                 self._user_prompt(engine, user_input.language),
                 user_input.extra_system_prompt,
             )
@@ -129,15 +128,15 @@ class GigaChatAgent(conversation.ConversationEntity):
 
         return conversation.async_get_result_from_chat_log(user_input, chat_log)
 
-    def _async_get_llm_api_id(self) -> str | None:
-        """Return the HA LLM API to use, or None for a plain chat."""
+    def _async_get_llm_api_ids(self) -> list[str] | None:
+        """Return the HA LLM APIs to use, or None for a plain chat."""
         engine = self.entry.data.get(CONF_ENGINE) or ID_GIGACHAT
         if engine == ID_YANDEX_GPT:
             return None
-        llm_api_id = self.entry.options.get(CONF_LLM_HASS_API, DEFAULT_LLM_HASS_API)
-        if not llm_api_id or llm_api_id == LLM_API_NONE:
-            return None
-        return llm_api_id
+        apis = llm_tools.normalize_llm_apis(
+            self.entry.options.get(CONF_LLM_HASS_API, [DEFAULT_LLM_HASS_API])
+        )
+        return apis or None
 
     def _user_prompt(self, engine: str, language: str | None) -> str | None:
         """Return the user prompt template for the request language."""
