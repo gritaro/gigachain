@@ -11,7 +11,7 @@ import voluptuous as vol
 from gigachat.exceptions import ResponseError
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers import selector
+from homeassistant.helpers import llm, selector
 from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
@@ -56,10 +56,27 @@ from .const import (
     UNIQUE_ID_YANDEX_GPT,
 )
 
-LLM_HASS_API_OPTIONS = [
-    selector.SelectOptionDict(value=DEFAULT_LLM_HASS_API, label="Assist"),
-    selector.SelectOptionDict(value=LLM_API_NONE, label="None"),
-]
+
+def llm_hass_api_options(apis: list) -> list[selector.SelectOptionDict]:
+    """Build the AI-tools selector options from the registered HA LLM APIs."""
+    options = [selector.SelectOptionDict(value=api.id, label=api.name) for api in apis]
+    options.append(selector.SelectOptionDict(value=LLM_API_NONE, label="None"))
+    return options
+
+
+def _default_prompt(unique_id: str) -> str:
+    """Return the built-in prompt for an integration entry."""
+    return (
+        DEFAULT_PROMPT_YANDEXGPT
+        if unique_id == UNIQUE_ID_YANDEX_GPT
+        else DEFAULT_PROMPT
+    )
+
+
+def _normalize_prompt_option(unique_id: str, user_input: dict[str, Any]) -> None:
+    """Keep the built-in prompt implicit in config entry options."""
+    if user_input.get(CONF_PROMPT) == _default_prompt(unique_id):
+        user_input[CONF_PROMPT] = ""
 
 LOGGER = logging.getLogger(__name__)
 
@@ -188,7 +205,8 @@ class OptionsFlow(config_entries.OptionsFlow):
         unique_id = self.config_entry.unique_id
         models = await get_models(self.hass, self.config_entry)
         schema = common_config_option_schema(
-            unique_id, self.config_entry.options, models
+            unique_id, self.config_entry.options, models,
+            llm_hass_api_options(llm.async_get_apis(self.hass)),
         )
         if user_input is not None:
             errors["base"] = "unsupported"
@@ -205,6 +223,7 @@ class OptionsFlow(config_entries.OptionsFlow):
                     step_id="init", data_schema=schema, errors=errors
                 )
 
+            _normalize_prompt_option(unique_id, user_input)
             return self.async_create_entry(title=unique_id, data=user_input)
 
         return self.async_show_form(
@@ -214,13 +233,13 @@ class OptionsFlow(config_entries.OptionsFlow):
 
 
 def common_config_option_schema(
-        unique_id: str, options: MappingProxyType[str, Any], models: list[str]
+        unique_id: str, options: MappingProxyType[str, Any], models: list[str],
+        llm_api_options: list[selector.SelectOptionDict] | None = None,
 ) -> vol.Schema:
     """Return a schema for GigaChain completion options."""
     if not options:
         options = DEFAULT_OPTIONS
-    default_prompt = (DEFAULT_PROMPT_YANDEXGPT if unique_id == UNIQUE_ID_YANDEX_GPT
-                      else DEFAULT_PROMPT)
+    default_prompt = _default_prompt(unique_id)
     schema = vol.Schema({
         vol.Optional(
             CONF_CHAT_MODEL,
@@ -266,16 +285,24 @@ def common_config_option_schema(
             default=DEFAULT_PROCESS_BUILTIN_SENTENCES): bool,
     })
     if unique_id != UNIQUE_ID_YANDEX_GPT:
+        llm_apis = options.get(CONF_LLM_HASS_API, [DEFAULT_LLM_HASS_API])
+        if isinstance(llm_apis, str):
+            # Options saved before 0.4.0 hold a single id.
+            llm_apis = [llm_apis]
         schema = schema.extend(
             {
                 vol.Optional(
                     CONF_LLM_HASS_API,
                     description={
-                        "suggested_value": options.get(CONF_LLM_HASS_API, DEFAULT_LLM_HASS_API)
+                        "suggested_value": llm_apis
                     },
-                    default=DEFAULT_LLM_HASS_API,
+                    default=[DEFAULT_LLM_HASS_API],
                 ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(options=LLM_HASS_API_OPTIONS),
+                    selector.SelectSelectorConfig(
+                        mode=SelectSelectorMode("dropdown"),
+                        options=llm_api_options,
+                        multiple=True,
+                    ),
                 ),
             }
         )

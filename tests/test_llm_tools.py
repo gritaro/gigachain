@@ -57,6 +57,9 @@ def _install_extra_stubs() -> None:
     llm.ToolInput = _stub("ToolInput")
     llm.ToolResult = _stub("ToolResult")
     helpers.llm = llm
+    selector_mod = types.ModuleType("homeassistant.helpers.selector")
+    selector_mod.SelectOptionDict = _stub("SelectOptionDict")
+    helpers.selector = selector_mod
     ha.helpers = helpers
 
     probatio = types.ModuleType("probatio")
@@ -81,6 +84,7 @@ def _install_extra_stubs() -> None:
             "homeassistant.components.conversation": conversation,
             "homeassistant.helpers": helpers,
             "homeassistant.helpers.llm": llm,
+            "homeassistant.helpers.selector": selector_mod,
             "probatio": probatio,
             "langchain_core": langchain_core,
             "langchain_core.messages": messages,
@@ -90,8 +94,20 @@ def _install_extra_stubs() -> None:
 
 def _load_llm_tools():
     _install_extra_stubs()
-    spec = importlib.util.spec_from_file_location("gigachain_llm_tools", LLM_TOOLS_PATH)
+    # Load llm_tools.py as a member of the (stubbed) integration package so
+    # that its relative imports (e.g. ``from .const import LLM_API_NONE``)
+    # resolve against the real ``const.py`` next to it.
+    pkg_name = "custom_components.gigachain"
+    if pkg_name not in sys.modules:
+        pkg = types.ModuleType(pkg_name)
+        pkg.__path__ = [str(LLM_TOOLS_PATH.parent)]
+        sys.modules["custom_components"] = types.ModuleType("custom_components")
+        sys.modules[pkg_name] = pkg
+    spec = importlib.util.spec_from_file_location(
+        f"{pkg_name}.llm_tools", LLM_TOOLS_PATH
+    )
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -221,3 +237,75 @@ def test_tool_result_message_keeps_tool_name(llm_tools):
     assert len(messages) == 1
     assert messages[0].name == "HassTurnOn"
     assert messages[0].tool_call_id == "call-1"
+
+
+def test_normalize_llm_apis_passes_list_through(llm_tools):
+    assert llm_tools.normalize_llm_apis(["assist", "mcp-demo"]) == [
+        "assist",
+        "mcp-demo",
+    ]
+
+
+def test_normalize_llm_apis_wraps_legacy_string(llm_tools):
+    """Options saved before 0.4.0 hold a single id string."""
+    assert llm_tools.normalize_llm_apis("assist") == ["assist"]
+
+
+def test_normalize_llm_apis_drops_none_value(llm_tools):
+    assert llm_tools.normalize_llm_apis(["none"]) == []
+    assert llm_tools.normalize_llm_apis(["none", "assist"]) == ["assist"]
+
+
+def test_normalize_llm_apis_empty_stays_empty(llm_tools):
+    assert llm_tools.normalize_llm_apis(None) == []
+    assert llm_tools.normalize_llm_apis([]) == []
+
+
+def test_format_strip_is_dropped(llm_tools):
+    """probatio leaks normalization hints; GigaChat only allows date formats."""
+    schema = llm_tools._sanitize_schema(
+        {"type": "string", "format": "strip", "description": "Filter by domain"}
+    )
+    assert schema == {"type": "string", "description": "Filter by domain"}
+
+
+def test_format_lower_is_dropped(llm_tools):
+    schema = llm_tools._sanitize_schema(
+        {"type": "string", "format": "lower", "enum": ["loaded", "error"]}
+    )
+    assert schema == {"type": "string", "enum": ["loaded", "error"]}
+
+
+def test_format_date_is_kept(llm_tools):
+    schema = llm_tools._sanitize_schema({"type": "string", "format": "date"})
+    assert schema == {"type": "string", "format": "date"}
+
+
+def test_format_inside_properties_is_dropped(llm_tools):
+    """The real-world shape: config__get_config_entries(domain.format='strip')."""
+    schema = llm_tools._sanitize_schema(
+        {
+            "type": "object",
+            "properties": {
+                "domain": {
+                    "description": "Filter by integration domain.",
+                    "type": "string",
+                    "format": "strip",
+                },
+                "status": {
+                    "type": "string",
+                    "format": "lower",
+                    "enum": ["loaded", "error", "not_loaded"],
+                },
+            },
+            "additionalProperties": False,
+        }
+    )
+    assert schema["properties"]["domain"] == {
+        "description": "Filter by integration domain.",
+        "type": "string",
+    }
+    assert schema["properties"]["status"] == {
+        "type": "string",
+        "enum": ["loaded", "error", "not_loaded"],
+    }
